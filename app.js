@@ -698,11 +698,33 @@ function setFeedDateFilter(ym) {
 }
 
 // ══════════════════════════════════════════
+// 저장 후 공유 (미저장 상태에서 공유 버튼 클릭 시)
+// ══════════════════════════════════════════
+function saveAndShare() {
+  // 내용 동기화
+  const noteEl = document.getElementById("noteText");
+  if (noteEl) state.note = noteEl.value.trim();
+  state.gratitude.forEach((_, i) => {
+    const ta = document.getElementById(`gtext${i}`);
+    if (ta) state.gratitude[i] = ta.value;
+  });
+
+  const hasContent = state.gratitude.some(g => g && g.trim());
+  if (!hasContent) { showToast("감사한 내용을 먼저 입력해주세요 ✦"); return; }
+
+  // 미저장이면 자동 저장
+  if (!saved) {
+    doSave();
+    // doSave는 동기이므로 바로 이어서 공유 모달 열기
+  }
+  shareToFeed();
+}
+
+// ══════════════════════════════════════════
 // 그룹 공유 (익명 옵션 포함)
 // ══════════════════════════════════════════
 function shareToFeed() {
   if (!firebaseReady) { showToast("Firebase 설정이 필요해요 🔥"); return; }
-  if (!saved) { showToast("먼저 저장해주세요!"); return; }
 
   const hasContent = state.gratitude.some(g => g && g.trim());
   if (!hasContent) { showToast("감사한 내용을 먼저 입력해주세요 ✦"); return; }
@@ -1055,28 +1077,36 @@ function renderWrite() {
   const dots = Array.from({length: totalSlots}, (_,i) =>
     `<div class="dot ${i<filled?"filled":""}"></div>`).join("");
 
-  // 공유 버튼 — saved=true면 항상 표시, Firebase 상태에 따라 내용 변경
+  // 공유 버튼 — 항상 표시, 상태에 따라 4가지 분기
+  const alreadyShared = sharedToday || getSharedKeys().includes(todayKey());
+  const hasContent = state.gratitude.some(g => g && g.trim());
   let shareSection = "";
-  if (saved) {
-    const alreadyShared = sharedToday || getSharedKeys().includes(todayKey());
-    if (alreadyShared) {
-      shareSection = `
-        <button class="share-btn shared" onclick="showToast('오늘은 이미 공유했어요 ✦')">
-          ✦ 오늘 그룹에 공유됨
-        </button>`;
-    } else if (!firebaseReady) {
-      // Firebase 연결 지연 — 버튼은 보이되 연결 중 안내
-      shareSection = `
-        <button class="share-btn" style="opacity:0.55;cursor:default"
-          onclick="showToast('Firebase 연결 중이에요. 잠시 후 다시 시도해주세요 🌿')">
-          🌿 그룹에 공유하기
-        </button>`;
-    } else {
-      shareSection = `
-        <button class="share-btn" onclick="shareToFeed()">
-          🌿 그룹에 공유하기
-        </button>`;
-    }
+  if (alreadyShared) {
+    // ① 이미 공유함
+    shareSection = `
+      <button class="share-btn shared" onclick="showToast('오늘은 이미 공유했어요 ✦')">
+        ✦ 오늘 그룹에 공유됨
+      </button>`;
+  } else if (!firebaseReady) {
+    // ② Firebase 연결 중
+    shareSection = `
+      <button class="share-btn" style="opacity:0.55;cursor:default"
+        onclick="showToast('Firebase 연결 중이에요. 잠시 후 다시 시도해주세요 🌿')">
+        🌿 그룹에 공유하기
+      </button>`;
+  } else if (!hasContent) {
+    // ③ 내용 없음 — 비활성
+    shareSection = `
+      <button class="share-btn" style="opacity:0.38;cursor:default"
+        onclick="showToast('감사한 내용을 먼저 입력해주세요 ✦')">
+        🌿 그룹에 공유하기
+      </button>`;
+  } else {
+    // ④ 공유 가능 — 미저장이면 자동 저장 후 공유
+    shareSection = `
+      <button class="share-btn" onclick="saveAndShare()">
+        🌿 그룹에 공유하기
+      </button>`;
   }
 
   return `
@@ -1798,7 +1828,7 @@ function addGratitudeItem() {
       const alreadyShared = sharedToday || getSharedKeys().includes(todayKey());
       const shareEl = document.getElementById("shareSectionWrap");
       if (shareEl && !alreadyShared && firebaseReady) {
-        shareEl.innerHTML = `<button class="share-btn" onclick="shareToFeed()">🌿 그룹에 공유하기</button>`;
+        shareEl.innerHTML = `<button class="share-btn" onclick="saveAndShare()">🌿 그룹에 공유하기</button>`;
       } else if (shareEl && alreadyShared) {
         shareEl.innerHTML = `<button class="share-btn shared" onclick="showToast('오늘은 이미 공유했어요 ✦')">✦ 오늘 그룹에 공유됨</button>`;
       }
@@ -1866,15 +1896,14 @@ function doSave() {
     shareEl.id = "shareSectionWrap";
     btn.parentNode.insertBefore(shareEl, btn.nextSibling);
   }
-  // ✅ 버그 수정: firebaseReady와 무관하게 공유 버튼 항상 렌더
-  // (GitHub Pages에서 Firebase가 늦게 연결될 때도 버튼이 보이도록)
+  // 저장 후 공유 버튼 상태 업데이트
   if (shareEl) {
     if (alreadyShared) {
       shareEl.innerHTML = `<button class="share-btn shared" onclick="showToast('오늘은 이미 공유했어요 ✦')">✦ 오늘 그룹에 공유됨</button>`;
     } else if (!firebaseReady) {
       shareEl.innerHTML = `<button class="share-btn" style="opacity:0.55;cursor:default" onclick="showToast('Firebase 연결 중이에요. 잠시 후 다시 시도해주세요 🌿')">🌿 그룹에 공유하기</button>`;
     } else {
-      shareEl.innerHTML = `<button class="share-btn" onclick="shareToFeed()">🌿 그룹에 공유하기</button>`;
+      shareEl.innerHTML = `<button class="share-btn" onclick="saveAndShare()">🌿 그룹에 공유하기</button>`;
     }
   }
 }
