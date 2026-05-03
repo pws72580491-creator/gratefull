@@ -63,7 +63,10 @@ function initFirebase() {
     if (_nick) {
       // encodeNick이 app.js에 있으므로 직접 인라인 처리
       const _enc = _nick.replace(/[.#$[\]\/]/g, "_").trim();
-      if (_enc) userRef = db.ref(`grateful-users/${_enc}/history`);
+      if (_enc) {
+        userRef   = db.ref(`grateful-users/${_enc}/history`);
+        prayerRef = db.ref(`grateful-users/${_enc}/prayers`);
+      }
     }
     return true;
   } catch(e) {

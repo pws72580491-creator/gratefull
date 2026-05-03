@@ -70,6 +70,8 @@ let rewindYear = new Date().getFullYear(); // 연간 리와인드 연도
 // 🙏 기도노트 상태
 let prayerFilter = "active";  // "active" | "answered"
 let prayerEditId = null;       // 수정 중인 기도 ID
+let prayerRef = null;          // Firebase ref: grateful-users/{nick}/prayers
+let prayerListener = null;     // 실시간 리스너
 
 // 오늘 사용할 힌트 세트
 let todayHints = HINT_POOL[new Date().getDay() % HINT_POOL.length];
@@ -163,8 +165,10 @@ function showSyncRulesGuide() {
 
 function updateUserRef(nick) {
   if (userListener && userRef) { userRef.off("value", userListener); userListener = null; }
-  if (!firebaseReady || !db || !nick) { userRef = null; return; }
-  userRef = db.ref(`grateful-users/${encodeNick(nick)}/history`);
+  if (prayerListener && prayerRef) { prayerRef.off("value", prayerListener); prayerListener = null; }
+  if (!firebaseReady || !db || !nick) { userRef = null; prayerRef = null; return; }
+  userRef   = db.ref(`grateful-users/${encodeNick(nick)}/history`);
+  prayerRef = db.ref(`grateful-users/${encodeNick(nick)}/prayers`);
 }
 
 // 특정 날짜 기록 → 클라우드 업로드
@@ -228,6 +232,9 @@ async function loadHistoryFromCloud() {
     updateStreak();
     syncChallengeWithHistory();
     if (currentView === "history" || currentView === "write") render();
+
+    // 기도 데이터도 클라우드에서 로드
+    await loadPrayersFromCloud();
 
     // 로컬에만 있는 날은 클라우드에 업로드 (양방향)
     const toUpload = Object.keys(local).filter(k =>
@@ -842,7 +849,10 @@ function init() {
     // 닉네임이 있으면 즉시 클라우드 동기화 시작
     const nick = getNickname();
     if (nick) {
-      loadHistoryFromCloud().then(() => startUserHistoryListener());
+      loadHistoryFromCloud().then(() => {
+        startUserHistoryListener();
+        startPrayerListener();
+      });
     }
   }
 
@@ -2011,7 +2021,8 @@ async function confirmLeaveGroup() {
 
     // ✅ 수정: Firebase 실시간 리스너 및 userRef 정리
     if (userListener && userRef) { userRef.off("value", userListener); userListener = null; }
-    userRef = null;
+    if (prayerListener && prayerRef) { prayerRef.off("value", prayerListener); prayerListener = null; }
+    userRef = null; prayerRef = null;
 
     closeLeaveModal();
     showToast(`기록을 삭제하고 그룹을 나왔어요.`);
@@ -3055,7 +3066,65 @@ const PRAYER_CATS = ["개인","가족","교회","감사","중보기도"];
 function getPrayers() {
   try { return JSON.parse(localStorage.getItem("grateful-prayer") || "{}"); } catch { return {}; }
 }
-function savePrayers(p) { localStorage.setItem("grateful-prayer", JSON.stringify(p)); }
+function savePrayers(p) {
+  localStorage.setItem("grateful-prayer", JSON.stringify(p));
+}
+
+// ── 기도 클라우드 동기화 ──
+async function syncPrayerToCloud(id, prayer) {
+  if (!firebaseReady || !prayerRef) return;
+  try {
+    await prayerRef.child(id).set(prayer);
+  } catch(e) { console.warn("기도 클라우드 저장 실패:", e); }
+}
+
+async function deletePrayerFromCloud(id) {
+  if (!firebaseReady || !prayerRef) return;
+  try {
+    await prayerRef.child(id).remove();
+  } catch(e) { console.warn("기도 클라우드 삭제 실패:", e); }
+}
+
+async function loadPrayersFromCloud() {
+  if (!firebaseReady || !prayerRef) return;
+  try {
+    const snap = await prayerRef.once("value");
+    if (!snap.exists()) return;
+    const cloudPrayers = snap.val();
+    const local = getPrayers();
+    // 클라우드 우선 병합 (createdAt 기준)
+    const merged = { ...local };
+    Object.keys(cloudPrayers).forEach(id => {
+      const cp = cloudPrayers[id];
+      if (!merged[id] || (cp.createdAt || 0) >= (merged[id].createdAt || 0)) {
+        merged[id] = cp;
+      }
+    });
+    savePrayers(merged);
+    if (currentView === "prayer") render();
+  } catch(e) { console.warn("기도 클라우드 로드 실패:", e); }
+}
+
+function startPrayerListener() {
+  if (!firebaseReady || !prayerRef) return;
+  if (prayerListener) { prayerRef.off("value", prayerListener); prayerListener = null; }
+  prayerListener = prayerRef.on("value", snap => {
+    if (!snap.exists()) return;
+    const cloudPrayers = snap.val();
+    const local = getPrayers();
+    let changed = false;
+    Object.keys(cloudPrayers).forEach(id => {
+      const cp = cloudPrayers[id];
+      if (!local[id] || (cp.createdAt || 0) > (local[id].createdAt || 0)) {
+        local[id] = cp; changed = true;
+      }
+    });
+    if (changed) {
+      savePrayers(local);
+      if (currentView === "prayer") render();
+    }
+  });
+}
 
 function genPrayerId() {
   return "p" + Date.now() + Math.random().toString(36).slice(2,6);
@@ -3079,6 +3148,7 @@ function addPrayer() {
                   answered: false, answeredAt: null,
                   date: todayKey(), createdAt: Date.now() };
   savePrayers(prayers);
+  syncPrayerToCloud(id, prayers[id]);  // ← 클라우드 업로드
   if (titleEl) titleEl.value = "";
   if (contentEl) contentEl.value = "";
   // 카테고리 기본으로 리셋
@@ -3093,6 +3163,7 @@ function markAnswered(id) {
   prayers[id].answered = true;
   prayers[id].answeredAt = Date.now();
   savePrayers(prayers);
+  syncPrayerToCloud(id, prayers[id]);  // ← 클라우드 업데이트
   showToast("✅ 응답받은 기도로 표시했어요!");
   render();
 }
@@ -3103,6 +3174,7 @@ function deletePrayer(id) {
   if (!confirm("이 기도 기록을 삭제할까요?")) return;
   delete prayers[id];
   savePrayers(prayers);
+  deletePrayerFromCloud(id);  // ← 클라우드 삭제
   showToast("삭제했어요.");
   render();
 }
