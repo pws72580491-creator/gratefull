@@ -1,4 +1,4 @@
-const CACHE_NAME = 'grateful-v2';
+const CACHE_NAME = 'grateful-v3';
 
 self.addEventListener('install', e => {
   e.waitUntil(
