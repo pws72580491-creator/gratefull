@@ -11,27 +11,14 @@ const firebaseConfig = {
 };
 
 let db = null;
-let feedRef = null;
 let userRef = null;          // 내 기록 클라우드 ref
-let feedListener = null;
-let feedQuery = null;        // off() 호출을 위한 쿼리 레퍼런스
 let userListener = null;     // 내 기록 실시간 리스너
 
 // ── 동기화 상태 ──
 let syncStatus = 'idle';     // 'idle' | 'syncing' | 'synced' | 'error'
 let syncTimer  = null;
 
-// ── 피드 페이지네이션 ──
-let feedLimit   = 15;        // 현재 로드 개수 (15개씩 무한스크롤)
-let feedHasMore = false;     // 더 불러올 항목 있음 여부
-let feedDateFilter = '';     // 'YYYY-MM' 형식, '' = 전체
 
-// ── 피드 고급 필터 ──
-let feedAuthorFilter = '';   // '' = 전체, 또는 특정 닉네임
-let feedViewMode = 'all';    // 'all' | 'week' | 'month' | 'range'
-let feedWeekOffset = 0;      // 0 = 이번 주, -1 = 지난 주, ...
-let feedRangeStart = '';     // YYYY-MM-DD
-let feedRangeEnd   = '';     // YYYY-MM-DD
 
 // 스크립트를 순서대로 동적 로드 (Android/iOS 로딩 순서 보장)
 function loadScript(src) {
@@ -57,7 +44,6 @@ function initFirebase() {
       firebase.initializeApp(firebaseConfig);
       db      = firebase.database();
     }
-    feedRef = db.ref("grateful-feed");
     // 내 기록 ref — 닉네임이 있으면 바로 연결
     const _nick = getNickname ? getNickname() : (localStorage.getItem("grateful-nickname") || "");
     if (_nick) {

@@ -41,31 +41,13 @@
 </div>
 
 <!-- 공유 항목 선택 + 익명 선택 모달 -->
-<div class="modal-overlay" id="shareOptionModal" style="display:none">
-  <div class="modal-box">
-    <div style="font-size:32px;text-align:center;margin-bottom:8px">🌿</div>
     <div class="modal-title" style="text-align:center">그룹에 공유하기</div>
 
     <!-- 스크롤 영역 (항목 선택만) -->
     <div class="modal-scroll">
-      <!-- ① 항목 선택 -->
-      <div class="share-step-label" style="margin-top:12px">공유할 내용 선택</div>
-      <div id="shareItemList"></div>
-      <button class="share-select-all-btn" id="shareSelectAllBtn" onclick="toggleShareSelectAll()">전체 선택 해제</button>
-    </div>
+      <!-- ① 항목 선택 -->    </div>
 
     <!-- ② 이름 선택 (항상 보임) -->
-    <div class="share-divider" style="margin:12px 0 8px"></div>
-    <div class="share-step-label">이름 선택</div>
-    <button class="share-option-btn primary" onclick="doShareToFeed(false)">
-      <span>🙂</span>
-      <div><div style="font-size:14px" id="shareNickLabel"></div><div style="font-size:11px;opacity:0.8;margin-top:2px">내 이름으로 공유</div></div>
-    </button>
-    <button class="share-option-btn" onclick="doShareToFeed(true)">
-      <span>🌸</span>
-      <div><div style="font-size:14px">익명으로 공유</div><div style="font-size:11px;opacity:0.7;margin-top:2px">이름 없이 감사만 남겨요</div></div>
-    </button>
-
     <button class="modal-btn-cancel" style="width:100%;margin-top:12px;border-radius:14px;padding:12px" onclick="closeShareOptionModal()">취소</button>
   </div>
 </div>
@@ -135,7 +117,6 @@
     <div style="font-size:36px;text-align:center;margin-bottom:12px">🚪</div>
     <div class="modal-title" style="text-align:center">그룹에서 나가기</div>
     <div class="modal-sub" style="text-align:center">
-      그룹에서 나가면 피드에 올린<br>
       <strong id="leaveNickDisplay" style="color:var(--terra)"></strong>님의 기록이<br>
       <strong style="color:#c0392b">모두 영구 삭제</strong>됩니다.<br><br>
       <span style="font-size:11px;opacity:0.7">내 기록(내 기록 탭)은 유지돼요.</span>
@@ -271,7 +252,6 @@
     <button class="tab-btn active" onclick="setView('write')">오늘</button>
     <button class="tab-btn" onclick="setView('history')">기록</button>
     <button class="tab-btn" onclick="setView('prayer')">🙏 기도</button>
-    <button class="tab-btn" id="feedTabBtn" onclick="setView('feed')">피드<span class="feed-dot" id="feedDot" style="display:none"></span></button>
   </div>
   <div style="height:6px;display:flex;align-items:center;justify-content:center;margin-top:4px">
     <span class="sync-badge" id="syncBadge"></span>
