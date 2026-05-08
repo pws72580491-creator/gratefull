@@ -1,10 +1,23 @@
-const CACHE_NAME = 'grateful-v3';
+const CACHE_NAME = 'grateful-v4';
+
+const CACHE_FILES = [
+  './',
+  './index.html',
+  './app.css',
+  './app.js',
+  './firebase-init.js',
+  './manifest.json',
+  './apple-touch-icon.png',
+  './favicon.png',
+  './icons/icon-192x192.png',
+  './icons/icon-512x512.png',
+];
 
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE_NAME).then(async cache => {
-      // 클라이언트에서 start_url 받아서 캐시
-    }).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(CACHE_FILES))
+      .then(() => self.skipWaiting())
   );
 });
 

@@ -1320,6 +1320,11 @@ function spawnHearts() {
 // ══════════════════════════════════════════
 // 그룹 나가기
 // ══════════════════════════════════════════
+function closeLeaveModal() {
+  const m = document.getElementById("leaveGroupModal");
+  if (m) m.style.display = "none";
+}
+
 function showLeaveGroupModal() {
   const myNick = getNickname();
   if (!myNick) { showToast("그룹에 참여 중이 아니에요."); return; }
