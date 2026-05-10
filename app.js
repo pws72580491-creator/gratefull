@@ -300,52 +300,48 @@ const THEME_META = {
   aurora: { bgColor: "#050508", dark: true,  icon: "🌌",  label: "오로라 다크" },
   blue:   { bgColor: "#0a0d14", dark: true,  icon: "🌃",  label: "블루 나이트" },
 };
-const THEME_CLASSES = ["light","dark","theme-sepia","theme-aurora","theme-blue"];
+const THEMES = {
+  sepia:       { bgColor: "#f2e3c6", dark: false, icon: "🌿", label: "웜 세피아" },
+  "ios-white": { bgColor: "#f2f2f7", dark: false, icon: "☁️", label: "iOS 화이트" },
+  "ios-dark":  { bgColor: "#000000", dark: true,  icon: "🌑", label: "iOS 다크" },
+};
+
+const THEME_CLASSES = ["theme-sepia","theme-ios-white","theme-ios-dark"];
 
 function getSystemDark() { return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches; }
 
 function applyTheme(theme) {
-  const meta = THEME_META[theme] || THEME_META.light;
   const html = document.documentElement;
-  // 기존 테마 클래스 모두 제거
-  html.classList.remove("light","dark","theme-sepia","theme-aurora","theme-blue");
-  // 새 테마 클래스 적용
-  if (theme === "dark")   { html.classList.add("dark"); }
-  else if (theme === "sepia")  { html.classList.add("light","theme-sepia"); }
-  else if (theme === "aurora") { html.classList.add("dark","theme-aurora"); }
-  else if (theme === "blue")   { html.classList.add("dark","theme-blue"); }
-  else { html.classList.add("light"); } // default: light
-  // 오버스크롤 배경색
-  html.style.backgroundColor = meta.bgColor;
-  document.body.style.backgroundColor = meta.bgColor;
-  // 상태바
-  const statusMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
-  if (statusMeta) statusMeta.content = meta.dark ? "black" : "default";
-  // 피커 스와치 활성화
+  html.classList.remove("light","dark","theme-sepia","theme-aurora","theme-blue","theme-ios-white","theme-ios-dark");
+  const t = THEMES[theme] || THEMES["sepia"];
+  if (theme === "ios-white")     html.classList.add("theme-ios-white");
+  else if (theme === "ios-dark") html.classList.add("theme-ios-dark");
+  else                           html.classList.add("theme-sepia");
+  const meta = document.getElementById("metaThemeColor");
+  if (meta) meta.content = t.bgColor;
   updateThemeSwatches(theme);
-  // PWA theme-color 메타 업데이트 (함수 존재 시)
-  if (typeof _updatePwaThemeColor === 'function') _updatePwaThemeColor();
 }
 
 function updateThemeSwatches(theme) {
-  ["light","dark","sepia","aurora","blue"].forEach(t => {
+  ["sepia","ios-white","ios-dark"].forEach(t => {
     const el = document.getElementById("swatch-" + t);
     if (el) el.classList.toggle("active", t === theme);
   });
 }
 
 function selectTheme(theme) {
-  applyTheme(theme);
-  localStorage.setItem("grateful-theme", theme);
+  const valid = ["sepia","ios-white","ios-dark"];
+  const t = valid.includes(theme) ? theme : "sepia";
+  localStorage.setItem("grateful-theme", t);
+  applyTheme(t);
   closeThemePicker();
-  showToast(`✦ ${THEME_META[theme]?.label || theme} 테마로 변경했어요`);
 }
 
 function showThemePicker() {
   const modal = document.getElementById("themePickerModal");
   if (modal) { modal.style.display = "flex"; }
   // 현재 테마 표시
-  const cur = localStorage.getItem("grateful-theme") || (getSystemDark() ? "dark" : "light");
+  const cur = "sepia";
   updateThemeSwatches(cur);
   // 폰트·패턴 스와치도 최신 반영
   updateFontSwatches(localStorage.getItem("grateful-font") || "default");
@@ -368,11 +364,7 @@ function onThemeModalOverlayClick(e) {
 
 function initTheme() {
   const pref = localStorage.getItem("grateful-theme");
-  if (pref && THEME_META[pref]) applyTheme(pref);
-  else applyTheme(getSystemDark() ? "dark" : "light");
-  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", e => {
-    if (!localStorage.getItem("grateful-theme")) applyTheme(e.matches ? "dark" : "light");
-  });
+  applyTheme("sepia"); // 웜 세피아 고정
 }
 
 // ══════════════════════════════════════════
@@ -456,7 +448,7 @@ async function recommendTheme() {
   const streak = calcStreak();
   const history = getHistory();
   const totalDays = Object.keys(history).length;
-  const currentTheme   = localStorage.getItem("grateful-theme")   || "light";
+  const currentTheme   = localStorage.getItem("grateful-theme") || "sepia";
   const currentFont    = localStorage.getItem("grateful-font")    || "default";
   const currentPattern = localStorage.getItem("grateful-pattern") || "none";
   const recentMoods = Object.entries(history)
@@ -480,7 +472,7 @@ async function recommendTheme() {
 - 현재 설정: 테마=${THEME_META[currentTheme]?.label||currentTheme}, 폰트=${fontLabels[currentFont]||currentFont}, 패턴=${patternLabels[currentPattern]||currentPattern}
 
 선택 가능한 옵션:
-테마: light(라이트), dark(다크), sepia(웜세피아), aurora(오로라다크), blue(블루나이트)
+테마: sepia(웜세피아), ios-white(iOS화이트), ios-dark(iOS다크트루블랙)
 폰트: default(기본), nanum-m(나눔명조), nanum-g(나눔고딕), gowun-d(고운돋움), gowun-b(고운바탕), gaegu(손글씨)
 패턴: none(없음), floral(꽃잎), stars(별빛), dots(점선), grid(격자), wave(물결)
 
@@ -505,10 +497,10 @@ JSON 형식으로만 응답하세요:
     const result = JSON.parse(clean);
 
     // 유효성 검증
-    const validThemes   = ["light","dark","sepia","aurora","blue"];
+    const validThemes   = ["sepia","ios-white","ios-dark"];
     const validFonts    = ["default","nanum-m","nanum-g","gowun-d","gowun-b","gaegu"];
     const validPatterns = ["none","floral","stars","dots","grid","wave"];
-    const safeTheme   = validThemes.includes(result.theme)   ? result.theme   : (hour >= 19 || hour < 6) ? "blue" : "sepia";
+    const safeTheme = validThemes.includes(result.theme) ? result.theme : "sepia";
     const safeFont    = validFonts.includes(result.font)     ? result.font    : "default";
     const safePattern = validPatterns.includes(result.pattern) ? result.pattern : "none";
 
