@@ -343,7 +343,7 @@ function showThemePicker() {
   const modal = document.getElementById("themePickerModal");
   if (modal) { modal.style.display = "flex"; }
   // 현재 테마 표시
-  const cur = "sepia";
+  const cur = localStorage.getItem("grateful-theme") || "sepia";
   updateThemeSwatches(cur);
   // 폰트·패턴 스와치도 최신 반영
   updateFontSwatches(localStorage.getItem("grateful-font") || "default");
@@ -365,8 +365,8 @@ function onThemeModalOverlayClick(e) {
 }
 
 function initTheme() {
-  const pref = localStorage.getItem("grateful-theme");
-  applyTheme("sepia"); // 웜 세피아 고정
+  const pref = localStorage.getItem("grateful-theme") || "sepia";
+  applyTheme(pref);
 }
 
 // ══════════════════════════════════════════
