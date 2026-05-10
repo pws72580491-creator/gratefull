@@ -222,36 +222,64 @@
     --brown:#48484a; --brown-light:#8e8e93; --brown-faint:#c7c7cc;
   }
 
+
   /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-     iOS 다크 (트루블랙)
-     (순수 블랙 + 앰버 포인트, OLED 최적화)
+     🍵 말차 그린
+     (연한 그린 아이보리 + 딥 그린 포인트)
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-  html.theme-ios-dark { /* OLED: html 배경도 순수 블랙 */
-    background: #000000;
-    background-color: #000000;
-    --bg-base:#000000; --bg-warm:#0a0a0a; --bg-accent:#141414;
-    --bg-grad-start:#000000; --bg-grad-mid:#080808; --bg-grad-end:#111111;
-    --terra:#ff9f0a; --terra-dark:#cc7d00; --terra-light:#ffbf4d;
-    --terra-xlight:#2a1800; --terra-glow:rgba(255,159,10,0.20); --terra-glow-md:rgba(255,159,10,0.35);
-    --gold:#ffd60a; --gold-light:#ffe44d; --gold-xlight:#1e1600;
-    --ink:#ffffff; --ink-mid:#e5e5e7; --ink-soft:#aeaeb2;
-    --ink-faint:#636366; --ink-ghost:#2c2c2e;
-    --border:#1c1c1e; --border-light:#2c2c2e;
-    --surface:rgba(10,10,10,0.97); --surface-hover:rgba(20,20,20,0.97); --surface-pressed:rgba(30,30,30,0.98);
-    --card-bg:rgba(18,18,18,0.97); --card-border:rgba(44,44,46,0.80);
-    --card-glow:rgba(255,159,10,0.04); --card-shine:rgba(255,255,255,0.03);
-    --header-bg:rgba(0,0,0,0.98); --header-border:rgba(28,28,30,0.98);
-    --overlay-bg:rgba(0,0,0,0.80);
-    --green:#30d158; --green-bg:rgba(48,209,88,0.10); --green-border:rgba(48,209,88,0.25);
-    --shadow-xs:0 1px 2px rgba(0,0,0,0.50); --shadow-sm:0 2px 8px rgba(0,0,0,0.60);
-    --shadow-md:0 4px 20px rgba(0,0,0,0.70); --shadow-lg:0 8px 36px rgba(0,0,0,0.80);
-    --shadow-card:0 1px 2px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.6), 0 10px 30px rgba(255,159,10,0.04);
-    --accent-rose:#ff453a; --accent-honey:#ff9f0a;
-    --h-note-border:#1c1c1e; --mood-bg:rgba(10,10,10,0.96); --mood-sel-bg:rgba(26,16,0,0.98);
-    --brown:#e5e5e7; --brown-light:#aeaeb2; --brown-faint:#636366;
+  html.theme-matcha {
+    background: linear-gradient(168deg, #f2f4ee 0%, #e8ede0 50%, #dce4d2 100%);
+    background-color: #e8ede0;
+    --bg-base:#e8ede0; --bg-warm:#dfe6d4; --bg-accent:#d4dfc6;
+    --bg-grad-start:#f2f4ee; --bg-grad-mid:#e8ede0; --bg-grad-end:#dce4d2;
+    --terra:#4a7c59; --terra-dark:#355c42; --terra-light:#6fa080;
+    --terra-xlight:#c8ddc8; --terra-glow:rgba(74,124,89,0.16); --terra-glow-md:rgba(74,124,89,0.28);
+    --gold:#8a7c4a; --gold-light:#b0a06a; --gold-xlight:#e4ddb8;
+    --ink:#1a2418; --ink-mid:#304030; --ink-soft:#5a7060;
+    --ink-faint:#8aA890; --ink-ghost:#c4d4c0;
+    --border:#c0ceB8; --border-light:#cdd9c4;
+    --surface:rgba(242,244,238,0.94); --surface-hover:rgba(232,237,224,0.97); --surface-pressed:rgba(220,228,210,0.98);
+    --card-bg:rgba(246,248,242,0.97); --card-border:rgba(192,206,184,0.70);
+    --card-glow:rgba(74,124,89,0.04); --card-shine:rgba(255,255,255,0.68);
+    --header-bg:rgba(242,244,238,0.97); --header-border:rgba(192,206,184,0.70);
+    --overlay-bg:rgba(16,24,14,0.60);
+    --green:#4a7c59; --green-bg:rgba(74,124,89,0.10); --green-border:rgba(74,124,89,0.30);
+    --shadow-xs:0 1px 2px rgba(40,70,40,0.07); --shadow-sm:0 2px 8px rgba(36,64,36,0.09);
+    --shadow-md:0 4px 20px rgba(30,58,30,0.11); --shadow-lg:0 8px 36px rgba(24,50,24,0.14);
+    --shadow-card:0 1px 2px rgba(40,70,40,0.06), 0 4px 16px rgba(36,64,36,0.09), 0 10px 30px rgba(30,58,30,0.07);
+    --accent-rose:#8a9e78; --accent-honey:#a09050;
+    --h-note-border:#c4d4c0; --mood-bg:rgba(242,244,240,0.96); --mood-sel-bg:rgba(220,234,214,0.98);
+    --brown:#304030; --brown-light:#5a7060; --brown-faint:#8aa890;
   }
 
-
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     🍊 선셋 오렌지
+     (따뜻한 피치 배경 + 번트 오렌지 포인트)
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  html.theme-sunset {
+    background: linear-gradient(168deg, #fef3e8 0%, #fae4cc 50%, #f5d4b0 100%);
+    background-color: #fae4cc;
+    --bg-base:#fae4cc; --bg-warm:#f5d8ba; --bg-accent:#efcaa2;
+    --bg-grad-start:#fef3e8; --bg-grad-mid:#fae4cc; --bg-grad-end:#f5d4b0;
+    --terra:#d4621a; --terra-dark:#b04e10; --terra-light:#e88840;
+    --terra-xlight:#fde4cc; --terra-glow:rgba(212,98,26,0.18); --terra-glow-md:rgba(212,98,26,0.30);
+    --gold:#c08020; --gold-light:#d8a040; --gold-xlight:#faeac8;
+    --ink:#241408; --ink-mid:#442810; --ink-soft:#7a4c24;
+    --ink-faint:#b08050; --ink-ghost:#e4c8a0;
+    --border:#e8c898; --border-light:#f0d8b0;
+    --surface:rgba(254,243,232,0.94); --surface-hover:rgba(250,232,212,0.97); --surface-pressed:rgba(244,218,192,0.98);
+    --card-bg:rgba(255,248,240,0.97); --card-border:rgba(232,200,152,0.70);
+    --card-glow:rgba(212,98,26,0.04); --card-shine:rgba(255,255,255,0.65);
+    --header-bg:rgba(254,243,232,0.97); --header-border:rgba(232,200,152,0.70);
+    --overlay-bg:rgba(24,12,4,0.62);
+    --green:#6a9a50; --green-bg:rgba(106,154,80,0.09); --green-border:rgba(106,154,80,0.28);
+    --shadow-xs:0 1px 2px rgba(160,80,20,0.07); --shadow-sm:0 2px 8px rgba(148,70,16,0.09);
+    --shadow-md:0 4px 20px rgba(136,60,12,0.12); --shadow-lg:0 8px 36px rgba(124,52,8,0.15);
+    --shadow-card:0 1px 2px rgba(160,80,20,0.06), 0 4px 16px rgba(148,70,16,0.09), 0 10px 30px rgba(136,60,12,0.07);
+    --accent-rose:#d46858; --accent-honey:#d49020;
+    --h-note-border:#e4c8a0; --mood-bg:rgba(254,244,234,0.96); --mood-sel-bg:rgba(248,228,204,0.98);
+    --brown:#442810; --brown-light:#7a4c24; --brown-faint:#b08050;
+  }
   /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      키프레임
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */

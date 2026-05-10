@@ -303,19 +303,21 @@ const THEME_META = {
 const THEMES = {
   sepia:       { bgColor: "#f2e3c6", dark: false, icon: "🌿", label: "웜 세피아" },
   "ios-white": { bgColor: "#f2f2f7", dark: false, icon: "☁️", label: "iOS 화이트" },
-  "ios-dark":  { bgColor: "#000000", dark: true,  icon: "🌑", label: "iOS 다크" },
+  "matcha":    { bgColor: "#e8ede0", dark: false, icon: "🍵", label: "말차 그린" },
+  "sunset":    { bgColor: "#fae4cc", dark: false, icon: "🍊", label: "선셋 오렌지" },
 };
 
-const THEME_CLASSES = ["theme-sepia","theme-ios-white","theme-ios-dark"];
+const THEME_CLASSES = ["theme-sepia","theme-ios-white","theme-matcha","theme-sunset"];
 
 function getSystemDark() { return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches; }
 
 function applyTheme(theme) {
   const html = document.documentElement;
-  html.classList.remove("light","dark","theme-sepia","theme-aurora","theme-blue","theme-ios-white","theme-ios-dark");
+  html.classList.remove("light","dark","theme-sepia","theme-aurora","theme-blue","theme-ios-white","theme-ios-dark","theme-matcha","theme-sunset"); // cleanup
   const t = THEMES[theme] || THEMES["sepia"];
   if (theme === "ios-white")     html.classList.add("theme-ios-white");
-  else if (theme === "ios-dark") html.classList.add("theme-ios-dark");
+  else if (theme === "matcha")   html.classList.add("theme-matcha");
+  else if (theme === "sunset")   html.classList.add("theme-sunset");
   else                           html.classList.add("theme-sepia");
   const meta = document.getElementById("metaThemeColor");
   if (meta) meta.content = t.bgColor;
@@ -323,14 +325,14 @@ function applyTheme(theme) {
 }
 
 function updateThemeSwatches(theme) {
-  ["sepia","ios-white","ios-dark"].forEach(t => {
+  ["sepia","ios-white","matcha","sunset"].forEach(t => {
     const el = document.getElementById("swatch-" + t);
     if (el) el.classList.toggle("active", t === theme);
   });
 }
 
 function selectTheme(theme) {
-  const valid = ["sepia","ios-white","ios-dark"];
+  const valid = ["sepia","ios-white","matcha","sunset"];
   const t = valid.includes(theme) ? theme : "sepia";
   localStorage.setItem("grateful-theme", t);
   applyTheme(t);
@@ -472,7 +474,7 @@ async function recommendTheme() {
 - 현재 설정: 테마=${THEME_META[currentTheme]?.label||currentTheme}, 폰트=${fontLabels[currentFont]||currentFont}, 패턴=${patternLabels[currentPattern]||currentPattern}
 
 선택 가능한 옵션:
-테마: sepia(웜세피아), ios-white(iOS화이트), ios-dark(iOS다크트루블랙)
+테마: sepia(웜세피아), ios-white(iOS화이트), matcha(말차그린), sunset(선셋오렌지)
 폰트: default(기본), nanum-m(나눔명조), nanum-g(나눔고딕), gowun-d(고운돋움), gowun-b(고운바탕), gaegu(손글씨)
 패턴: none(없음), floral(꽃잎), stars(별빛), dots(점선), grid(격자), wave(물결)
 
@@ -497,7 +499,7 @@ JSON 형식으로만 응답하세요:
     const result = JSON.parse(clean);
 
     // 유효성 검증
-    const validThemes   = ["sepia","ios-white","ios-dark"];
+    const validThemes   = ["sepia","ios-white","matcha","sunset"];
     const validFonts    = ["default","nanum-m","nanum-g","gowun-d","gowun-b","gaegu"];
     const validPatterns = ["none","floral","stars","dots","grid","wave"];
     const safeTheme = validThemes.includes(result.theme) ? result.theme : "sepia";
