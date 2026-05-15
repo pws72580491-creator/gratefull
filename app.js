@@ -2389,6 +2389,43 @@ function genPrayerId() {
   return "p" + Date.now() + Math.random().toString(36).slice(2,6);
 }
 
+
+// ══════════════════════════════════════════
+// 🙏 기도 수정
+// ══════════════════════════════════════════
+function editPrayer(id) {
+  prayerEditId = id;
+  render(); // 수정 모드로 재렌더
+}
+
+function cancelPrayerEdit() {
+  prayerEditId = null;
+  render();
+}
+
+async function savePrayerEdit(id) {
+  const titleEl   = document.getElementById(`pedit-title-${id}`);
+  const contentEl = document.getElementById(`pedit-content-${id}`);
+  const catBtns   = document.querySelectorAll(`#pedit-cats-${id} .prayer-cat-btn`);
+
+  const title   = (titleEl?.value || "").trim();
+  const content = (contentEl?.value || "").trim();
+  if (!title) { showToast("기도 제목을 입력해주세요 🙏"); return; }
+
+  let cat = "개인";
+  catBtns.forEach(b => { if (b.classList.contains("sel")) cat = b.dataset.cat; });
+
+  const prayers = getPrayers();
+  if (!prayers[id]) return;
+  prayers[id] = { ...prayers[id], title, content, category: cat };
+  savePrayers(prayers);
+  await syncPrayerToCloud(id, prayers[id]);
+
+  prayerEditId = null;
+  showToast("기도 제목을 수정했어요 ✦");
+  render();
+}
+
 function addPrayer() {
   const titleEl   = document.getElementById("prayerTitle");
   const contentEl = document.getElementById("prayerContent");
@@ -2545,6 +2582,32 @@ function renderPrayer() {
   } else {
     cards = display.map(p => {
       const dateStr = formatDateShort(p.date);
+      const isEditing = (prayerEditId === p.id);
+
+      // ── 수정 모드 ──
+      if (isEditing) {
+        const catRow = PRAYER_CATS.map(c =>
+          '<button class="prayer-cat-btn ' + (c === p.category ? 'sel' : '') + '" data-cat="' + c + '" ' +
+          'onclick="this.closest(\'.prayer-edit-cats\').querySelectorAll(\'.prayer-cat-btn\').forEach(b=>b.classList.remove(\'sel\')); this.classList.add(\'sel\')">' + c + '</button>'
+        ).join("");
+        return `
+          <div class="prayer-card editing">
+            <div class="prayer-form-label" style="margin-bottom:8px">기도 제목 수정</div>
+            <div class="prayer-edit-cats prayer-cat-row" id="pedit-cats-${p.id}" style="margin-bottom:10px">
+              ${catRow}
+            </div>
+            <input class="prayer-input" id="pedit-title-${p.id}" type="text"
+              value="${escHtml(p.title)}" maxlength="60" placeholder="기도 제목" />
+            <textarea class="prayer-textarea" id="pedit-content-${p.id}" rows="3"
+              placeholder="구체적인 기도 내용 (선택)">${escHtml(p.content || "")}</textarea>
+            <div style="display:flex;gap:8px;margin-top:4px">
+              <button class="prayer-add-btn" style="flex:1" onclick="savePrayerEdit('${p.id}')">✓ 저장</button>
+              <button class="prayer-del-btn" style="padding:12px 18px;border-radius:14px" onclick="cancelPrayerEdit()">취소</button>
+            </div>
+          </div>`;
+      }
+
+      // ── 일반 보기 모드 ──
       const contentHtml = p.content
         ? `<div class="prayer-card-content">${escHtml(p.content)}</div>` : "";
       const footer = p.answered
@@ -2554,6 +2617,7 @@ function renderPrayer() {
           </div>`
         : `<div class="prayer-card-footer">
             <button class="prayer-answered-btn" onclick="markAnswered('${p.id}')">✅ 응답됨</button>
+            <button class="prayer-del-btn" onclick="editPrayer('${p.id}')">✏️ 수정</button>
             <button class="prayer-del-btn" onclick="deletePrayer('${p.id}')">삭제</button>
           </div>`;
       return `

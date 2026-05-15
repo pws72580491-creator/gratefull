@@ -1627,6 +1627,13 @@
   .prayer-answered-btn:active{transform:scale(.93);}
   .prayer-del-btn{padding:6px 10px;border-radius:12px;border:1.5px solid var(--border);background:transparent;color:var(--ink-faint);font-family:'DM Sans',sans-serif;font-size:11.5px;cursor:pointer;transition:all .2s;}
   .prayer-del-btn:active{transform:scale(.93);}
+  .prayer-card.editing {
+    border-color: rgba(141,110,177,0.45);
+    background: linear-gradient(135deg, var(--card-bg), rgba(141,110,177,0.04));
+    box-shadow: var(--shadow-card), 0 0 0 2px rgba(141,110,177,0.12);
+  }
+  .prayer-edit-cats { flex-wrap: wrap; }
+
   .prayer-answered-tag{font-size:11px;color:var(--green);font-weight:700;display:flex;align-items:center;gap:4px;}
   .prayer-empty{text-align:center;color:var(--ink-faint);font-size:13px;padding:30px 20px;line-height:1.9;}
   .challenge-compact-bar{background:linear-gradient(135deg,var(--terra),var(--terra-dark));border-radius:14px;padding:13px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;}
