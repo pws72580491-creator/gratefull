@@ -65,6 +65,12 @@ let prayerFilter = "active";  // "active" | "answered"
 let prayerEditId = null;       // 수정 중인 기도 ID
 let prayerRef = null;          // Firebase ref: grateful-users/{nick}/prayers
 let prayerListener = null;     // 실시간 리스너
+// 피드 전역 변수 (firebase-init.js의 var feedRef와 공유)
+let feedListener  = null;
+let feedEntries   = [];
+let feedLoading   = false;
+let sharedToday   = false;
+let _feedNewCount = 0;
 
 // 오늘 사용할 힌트 세트
 let todayHints = HINT_POOL[new Date().getDay() % HINT_POOL.length];
@@ -683,6 +689,10 @@ function updateStreak() {
 function setView(v) {
   // 다른 탭으로 이동할 때 수정 모드 초기화
   if (v !== "history") histEditMode = false;
+  // 피드 탭 진입 시 feedRef 재확인
+  if (v === "feed" && firebaseReady && db && !feedLoading && feedEntries.length === 0) {
+    startFeedListener();
+  }
   currentView = v;
   document.querySelectorAll(".tab-btn").forEach((b, i) => {
     b.classList.toggle("active",
@@ -2694,33 +2704,56 @@ function addSharedKey(dateKey) {
 function startFeedListener() {
   if (!firebaseReady || !db) return;
   if (!feedRef) feedRef = db.ref("grateful-feed");
-  // 기존 리스너 정리
-  if (feedListener && feedRef) {
-    feedRef.off("child_added", feedListener);
-    feedListener = null;
-  }
-  feedEntries = [];
 
-  // 최근 30일치 데이터만 로드
+  // 기존 리스너 정리
+  if (feedRef) {
+    feedRef.off("child_added");
+    feedRef.off("child_removed");
+    feedRef.off("value");
+  }
+  feedListener = null;
+  feedEntries  = [];
+  feedLoading  = true;
+
+  // value 이벤트로 전체 초기 로드 (1회)
   const since = Date.now() - 30 * 24 * 60 * 60 * 1000;
   const query = feedRef.orderByChild("timestamp").startAt(since).limitToLast(50);
 
-  feedListener = query.on("child_added", snap => {
-    const entry = { id: snap.key, ...snap.val() };
-    // 중복 방지
-    if (!feedEntries.find(e => e.id === entry.id)) {
-      feedEntries.unshift(entry); // 최신순
-      feedEntries.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-    }
-    // 피드 탭 아닐 때 새 항목이면 빨간 점 표시
-    const myNick = getNickname();
-    const isMyPost = entry.origNick === myNick || (!entry.anon && entry.nickname === myNick);
-    if (currentView !== "feed" && !isMyPost) {
-      _feedNewCount++;
-      const dot = document.getElementById("feedDot");
-      if (dot) dot.style.display = "inline-block";
-    }
+  query.once("value", snap => {
+    feedEntries = [];
+    snap.forEach(child => {
+      feedEntries.push({ id: child.key, ...child.val() });
+    });
+    // 최신순 정렬
+    feedEntries.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    feedLoading = false;
+    // 피드 탭이면 즉시 렌더
     if (currentView === "feed") render();
+  }).catch(err => {
+    console.error("피드 로드 실패:", err);
+    feedLoading = false;
+    if (currentView === "feed") render();
+  });
+
+  // 이후 실시간 신규 항목 감지 (child_added)
+  // once("value") 완료 후 등록해야 중복 방지
+  query.once("value").then(() => {
+    feedListener = feedRef.orderByChild("timestamp").startAt(Date.now() - 1000).on("child_added", snap => {
+      const entry = { id: snap.key, ...snap.val() };
+      if (feedEntries.find(e => e.id === entry.id)) return; // 중복 스킵
+      feedEntries.unshift(entry);
+      feedEntries.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+      // 새 항목 알림 (내 글 제외)
+      const myNick = getNickname();
+      const isMyPost = entry.origNick === myNick || (!entry.anon && entry.nickname === myNick);
+      if (!isMyPost) {
+        _feedNewCount++;
+        const dot = document.getElementById("feedDot");
+        if (dot) dot.style.display = "inline-block";
+      }
+      if (currentView === "feed") render();
+    });
   });
 
   // 삭제 감지
@@ -2844,7 +2877,8 @@ function renderFeed() {
       </div>
     </div>`;
 
-  if (feedLoading && feedEntries.length === 0) return `
+  // 로딩 중 스피너
+  if (feedLoading) return `
     <div style="text-align:center;padding:60px 20px">
       <div class="feed-spinner"></div>
       <div style="color:var(--ink-faint);font-size:13px">피드 불러오는 중...</div>

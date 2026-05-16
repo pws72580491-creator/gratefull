@@ -12,8 +12,8 @@ const firebaseConfig = {
 
 let db = null;
 let userRef = null;          // 내 기록 클라우드 ref
+var feedRef  = null;          // 피드 공유 ref (app.js와 공유)
 let userListener = null;     // 내 기록 실시간 리스너
-let feedRef = null;          // 피드 공유 ref (전역 경로)
 
 // ── 동기화 상태 ──
 let syncStatus = 'idle';     // 'idle' | 'syncing' | 'synced' | 'error'
