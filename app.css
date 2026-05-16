@@ -280,6 +280,110 @@
     --h-note-border:#e4c8a0; --mood-bg:rgba(254,244,234,0.96); --mood-sel-bg:rgba(248,228,204,0.98);
     --brown:#442810; --brown-light:#7a4c24; --brown-faint:#b08050;
   }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     그룹 공유 버튼
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  .share-btn {
+    width:100%; padding:14px; margin-top:11px;
+    background:var(--green-bg); color:var(--green);
+    border:1.5px solid var(--green-border); border-radius:22px;
+    font-family:'DM Sans',sans-serif; font-size:13.5px; font-weight:700;
+    cursor:pointer; transition:all 0.25s; letter-spacing:0.3px;
+    display:block;
+  }
+  .share-btn:active { transform:scale(0.97); opacity:0.82; }
+  .share-btn.shared { opacity:0.55; cursor:default; background:var(--surface); }
+  .share-btn.share-btn-dim { opacity:0.40; cursor:default; }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     공유 모달 항목 선택
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  .share-step-label {
+    font-family:'DM Sans',sans-serif; font-size:10px; font-weight:700;
+    letter-spacing:1.4px; text-transform:uppercase; color:var(--ink-faint);
+    margin-bottom:8px;
+  }
+  .modal-scroll { max-height:200px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  .share-item-row {
+    display:flex; align-items:flex-start; gap:10px; padding:10px 12px;
+    border-radius:12px; margin-bottom:5px; cursor:pointer;
+    background:var(--surface); border:1.5px solid var(--border);
+    transition:all 0.15s;
+  }
+  .share-item-row.selected {
+    background:var(--terra-xlight); border-color:var(--terra-light);
+  }
+  .share-item-check {
+    width:18px; height:18px; border-radius:50%; flex-shrink:0;
+    background:var(--terra); color:#fff;
+    font-size:11px; font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+    border:1.5px solid var(--terra);
+  }
+  .share-item-row:not(.selected) .share-item-check {
+    background:transparent; color:transparent; border-color:var(--border);
+  }
+  .share-item-text {
+    font-family:'DM Sans',sans-serif; font-size:13px;
+    color:var(--ink-soft); line-height:1.5; flex:1;
+  }
+  .share-item-row.selected .share-item-text { color:var(--ink); }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     피드 탭 빨간 점
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  .feed-dot {
+    display:inline-block; width:7px; height:7px; border-radius:50%;
+    background:#ff3b30; margin-left:3px; vertical-align:middle;
+    animation:pulse 1.5s ease-in-out infinite;
+  }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     피드 카드
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  .feed-header-row {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:4px 2px 14px; margin-bottom:2px;
+  }
+  .feed-card {
+    background:var(--card-bg); border:1.5px solid var(--card-border);
+    border-radius:20px; padding:16px 18px; margin-bottom:12px;
+    box-shadow:var(--shadow-card); animation:fadeSlideIn 0.3s ease both;
+  }
+  .feed-card-mine {
+    border-color:var(--terra-light);
+    background:linear-gradient(135deg, var(--card-bg), var(--terra-xlight));
+  }
+  .feed-card-header {
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:10px;
+  }
+  .feed-card-nick {
+    font-family:'DM Sans',sans-serif; font-size:13px;
+    font-weight:700; color:var(--ink); display:flex; align-items:center; gap:4px;
+  }
+  .feed-card-date { font-size:11px; color:var(--ink-faint); }
+  .feed-item {
+    font-family:var(--font-writing); font-size:14px; color:var(--ink-soft);
+    line-height:1.75; padding:2px 0;
+  }
+  .feed-note {
+    margin-top:10px; font-family:var(--font-writing); font-size:12.5px;
+    color:var(--ink-faint); font-style:italic; line-height:1.7;
+    border-top:1px solid var(--border); padding-top:8px;
+  }
+  .feed-anon-badge {
+    font-size:10px; background:var(--surface); border:1px solid var(--border);
+    border-radius:8px; padding:1px 7px; color:var(--ink-faint);
+    font-family:'DM Sans',sans-serif; font-weight:600; margin-left:4px;
+  }
+  .feed-spinner {
+    width:24px; height:24px; border-radius:50%;
+    border:2.5px solid var(--border); border-top-color:var(--terra);
+    animation:spin 0.8s linear infinite; margin:0 auto 12px;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
   /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      키프레임
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */

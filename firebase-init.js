@@ -13,6 +13,7 @@ const firebaseConfig = {
 let db = null;
 let userRef = null;          // 내 기록 클라우드 ref
 let userListener = null;     // 내 기록 실시간 리스너
+let feedRef = null;          // 피드 공유 ref (전역 경로)
 
 // ── 동기화 상태 ──
 let syncStatus = 'idle';     // 'idle' | 'syncing' | 'synced' | 'error'
@@ -53,6 +54,8 @@ function initFirebase() {
         userRef   = db.ref(`grateful-users/${_enc}/history`);
         prayerRef = db.ref(`grateful-users/${_enc}/prayers`);
       }
+    // 피드는 전역 공유 경로
+    feedRef = db.ref("grateful-feed");
     }
     return true;
   } catch(e) {

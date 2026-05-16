@@ -101,6 +101,26 @@
   </div>
 </div>
 
+<!-- 그룹 공유 모달 -->
+<div class="modal-overlay" id="shareOptionModal" style="display:none" onclick="if(event.target===this)closeShareModal()">
+  <div class="modal-box">
+    <div class="modal-title" style="text-align:center">🌿 그룹에 공유하기</div>
+
+    <!-- 항목 선택 -->
+    <div class="share-step-label">공유할 감사 항목 선택</div>
+    <div class="modal-scroll" id="shareItemList"></div>
+
+    <!-- 이름 선택 -->
+    <div class="share-step-label" style="margin-top:14px">이름 선택</div>
+    <div id="shareNickLabel" style="font-size:13px;color:var(--ink-soft);margin-bottom:10px;font-family:'DM Sans',sans-serif"></div>
+    <div style="display:flex;gap:8px">
+      <button class="modal-btn" style="flex:1" onclick="doShareToFeed(false)">이름으로 공유</button>
+      <button class="modal-btn" style="flex:1;background:var(--surface);color:var(--ink-soft);border:1.5px solid var(--border)" onclick="doShareToFeed(true)">익명으로 공유</button>
+    </div>
+    <button class="modal-btn-cancel" style="margin-top:8px;width:100%" onclick="closeShareModal()">취소</button>
+  </div>
+</div>
+
 <!-- 그룹 나가기 확인 모달 -->
 <div class="modal-overlay" id="leaveGroupModal" style="display:none">
   <div class="modal-box">
@@ -238,6 +258,7 @@
     <button class="tab-btn active" onclick="setView('write')">오늘</button>
     <button class="tab-btn" onclick="setView('history')">기록</button>
     <button class="tab-btn" onclick="setView('prayer')">🙏 기도</button>
+    <button class="tab-btn" id="feedTabBtn" onclick="setView('feed')">피드<span class="feed-dot" id="feedDot" style="display:none"></span></button>
   </div>
   <div style="height:6px;display:flex;align-items:center;justify-content:center;margin-top:4px">
     <span class="sync-badge" id="syncBadge"></span>

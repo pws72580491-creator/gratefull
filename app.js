@@ -155,6 +155,8 @@ function updateUserRef(nick) {
   if (!firebaseReady || !db || !nick) { userRef = null; prayerRef = null; return; }
   userRef   = db.ref(`grateful-users/${encodeNick(nick)}/history`);
   prayerRef = db.ref(`grateful-users/${encodeNick(nick)}/prayers`);
+  // feedRef는 전역 공유 경로 (닉 무관)
+  if (!feedRef && db) feedRef = db.ref("grateful-feed");
 }
 
 // 특정 날짜 기록 → 클라우드 업로드
@@ -613,12 +615,17 @@ function init() {
   if (firebaseReady) {
     // 닉네임이 있으면 즉시 클라우드 동기화 시작
     const nick = getNickname();
+    // feedRef 초기화 (전역 공유 경로)
+    feedRef = db.ref("grateful-feed");
     if (nick) {
       loadHistoryFromCloud().then(() => {
         startUserHistoryListener();
         startPrayerListener();
       });
     }
+    // 오늘 공유 여부 복원
+    sharedToday = getSharedKeys().includes(todayKey());
+    startFeedListener();
   }
 
   const today = todayKey();
@@ -680,7 +687,7 @@ function setView(v) {
   document.querySelectorAll(".tab-btn").forEach((b, i) => {
     b.classList.toggle("active",
       (i===0 && v==="write") || (i===1 && v==="history") ||
-      (i===2 && v==="prayer")
+      (i===2 && v==="prayer") || (i===3 && v==="feed")
     );
   });
   render();
@@ -697,6 +704,7 @@ function render() {
       if (currentView === "write")          el.innerHTML = renderWrite();
       else if (currentView === "history")   el.innerHTML = renderHistory();
       else if (currentView === "prayer")    el.innerHTML = renderPrayer();
+      else if (currentView === "feed")      el.innerHTML = renderFeed();
       // 공통 하단 버전 푸터
       el.innerHTML += `<div class="app-footer">Grateful <span>v${APP_VERSION}</span> · ${APP_BUILD}<br>Made with 🌿 for a more thankful day</div>`;
       attachListeners();
@@ -713,7 +721,7 @@ function render() {
 // ══════════════════════════════════════════
 // 스와이프 탭 전환
 // ══════════════════════════════════════════
-const VIEWS = ["write", "history", "prayer"];
+const VIEWS = ["write", "history", "prayer", "feed"];
 
 function updateSwipeHints() {
   const idx = VIEWS.indexOf(currentView);
@@ -833,6 +841,20 @@ function renderWrite() {
   const dots = Array.from({length: totalSlots}, (_,i) =>
     `<div class="dot ${i<filled?"filled":""}"></div>`).join("");
 
+  // 공유 버튼 상태 결정
+  const alreadyShared = sharedToday || getSharedKeys().includes(todayKey());
+  const hasContent    = state.gratitude.some(g => g && g.trim());
+  let shareBtnHtml = "";
+  if (alreadyShared) {
+    shareBtnHtml = `<button class="share-btn shared" onclick="showToast('오늘은 이미 공유했어요 ✦')">✦ 오늘 그룹에 공유됨</button>`;
+  } else if (!firebaseReady) {
+    shareBtnHtml = `<button class="share-btn share-btn-dim" onclick="showToast('Firebase 연결 중이에요. 잠시 후 다시 시도해주세요 🌿')">🌿 그룹에 공유하기</button>`;
+  } else if (!hasContent) {
+    shareBtnHtml = `<button class="share-btn share-btn-dim" onclick="showToast('감사한 내용을 먼저 입력해주세요 ✦')">🌿 그룹에 공유하기</button>`;
+  } else {
+    shareBtnHtml = `<button class="share-btn" onclick="openShareModal()">🌿 그룹에 공유하기</button>`;
+  }
+
   return `
     <div style="text-align:center;font-size:12.5px;color:var(--brown-faint);margin:2px 0 14px;font-style:italic;letter-spacing:0.3px;animation:fadeSlideIn 0.4s ease">${greeting}</div>
     ${renderThrowback()}
@@ -853,6 +875,7 @@ function renderWrite() {
     <button class="save-btn ${saved?"saved":""}" id="saveBtn" onclick="doSave()">
       ${saved ? "✓  저장됨" : "저장하기"}
     </button>
+    ${shareBtnHtml}
   `;
 }
 
@@ -1334,7 +1357,11 @@ async function confirmLeaveGroup() {
     // Firebase 실시간 리스너 및 ref 정리
     if (userListener && userRef) { userRef.off("value", userListener); userListener = null; }
     if (prayerListener && prayerRef) { prayerRef.off("value", prayerListener); prayerListener = null; }
+    if (feedListener && feedRef) { feedRef.off("child_added", feedListener); feedListener = null; }
     userRef = null; prayerRef = null;
+    localStorage.removeItem("grateful-shared");
+    sharedToday = false;
+    feedEntries = [];
 
     // 로컬 데이터 초기화
     localStorage.removeItem("grateful-nickname");
@@ -2179,6 +2206,7 @@ function exportData() {
     font:      localStorage.getItem("grateful-font")      || "default",
     pattern:   localStorage.getItem("grateful-pattern")   || "none",
     prayer:    localStorage.getItem("grateful-prayer")    || "{}",
+    shared:    localStorage.getItem("grateful-shared")   || "[]",
   };
 
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -2274,6 +2302,16 @@ function importData() {
         } catch(e) { /* 무시 */ }
       }
 
+      // shared 복원
+      if (data.shared) {
+        try {
+          const existShared = getSharedKeys();
+          const impShared   = JSON.parse(data.shared);
+          const merged = [...new Set([...existShared, ...impShared])];
+          localStorage.setItem("grateful-shared", JSON.stringify(merged));
+          sharedToday = merged.includes(todayKey());
+        } catch(e) { /* 무시 */ }
+      }
       // input 초기화
       input.value = "";
 
@@ -2634,6 +2672,230 @@ function renderPrayer() {
   }
 
   return stats + form + filterRow + cards;
+}
+
+// ══════════════════════════════════════════
+// 그룹 공유 — localStorage 키 관리
+// ══════════════════════════════════════════
+function getSharedKeys() {
+  try { return JSON.parse(localStorage.getItem("grateful-shared") || "[]"); } catch { return []; }
+}
+function addSharedKey(dateKey) {
+  const keys = getSharedKeys();
+  if (!keys.includes(dateKey)) {
+    keys.push(dateKey);
+    localStorage.setItem("grateful-shared", JSON.stringify(keys));
+  }
+}
+
+// ══════════════════════════════════════════
+// 피드 실시간 리스너
+// ══════════════════════════════════════════
+function startFeedListener() {
+  if (!firebaseReady || !db) return;
+  if (!feedRef) feedRef = db.ref("grateful-feed");
+  // 기존 리스너 정리
+  if (feedListener && feedRef) {
+    feedRef.off("child_added", feedListener);
+    feedListener = null;
+  }
+  feedEntries = [];
+
+  // 최근 30일치 데이터만 로드
+  const since = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const query = feedRef.orderByChild("timestamp").startAt(since).limitToLast(50);
+
+  feedListener = query.on("child_added", snap => {
+    const entry = { id: snap.key, ...snap.val() };
+    // 중복 방지
+    if (!feedEntries.find(e => e.id === entry.id)) {
+      feedEntries.unshift(entry); // 최신순
+      feedEntries.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    }
+    // 피드 탭 아닐 때 새 항목이면 빨간 점 표시
+    const myNick = getNickname();
+    const isMyPost = entry.origNick === myNick || (!entry.anon && entry.nickname === myNick);
+    if (currentView !== "feed" && !isMyPost) {
+      _feedNewCount++;
+      const dot = document.getElementById("feedDot");
+      if (dot) dot.style.display = "inline-block";
+    }
+    if (currentView === "feed") render();
+  });
+
+  // 삭제 감지
+  feedRef.on("child_removed", snap => {
+    feedEntries = feedEntries.filter(e => e.id !== snap.key);
+    if (currentView === "feed") render();
+  });
+}
+
+// ══════════════════════════════════════════
+// 그룹 공유 — 공유 모달 열기
+// ══════════════════════════════════════════
+function openShareModal() {
+  // 내용 동기화 (미저장 상태 포함)
+  const noteEl = document.getElementById("noteText");
+  if (noteEl) state.note = noteEl.value.trim();
+  state.gratitude.forEach((_, i) => {
+    const ta = document.getElementById(`gtext${i}`);
+    if (ta) state.gratitude[i] = ta.value;
+  });
+
+  const hasContent = state.gratitude.some(g => g && g.trim());
+  if (!hasContent) { showToast("감사한 내용을 먼저 입력해주세요 ✦"); return; }
+  if (!firebaseReady) { showToast("Firebase 연결 중이에요. 잠시 후 다시 시도해주세요 🌿"); return; }
+  if (sharedToday || getSharedKeys().includes(todayKey())) {
+    showToast("오늘은 이미 공유했어요 ✦"); return;
+  }
+  const nick = getNickname();
+  if (!nick) { showNicknameModal(); return; }
+
+  // 미저장이면 자동 저장
+  if (!saved) doSave();
+
+  // 항목 선택 목록 렌더
+  const items = state.gratitude.filter(g => g && g.trim());
+  const itemListEl = document.getElementById("shareItemList");
+  if (itemListEl) {
+    itemListEl.innerHTML = items.map((g, i) => `
+      <div class="share-item-row selected" id="shareRow${i}" onclick="toggleShareItem(${i})">
+        <div class="share-item-check" id="shareChk${i}">✓</div>
+        <div class="share-item-text">${escHtml(g)}</div>
+      </div>`).join("");
+  }
+  // 닉네임 표시
+  const nickLabel = document.getElementById("shareNickLabel");
+  if (nickLabel) nickLabel.textContent = `${nick}님으로 공유`;
+
+  const modal = document.getElementById("shareOptionModal");
+  if (modal) modal.style.display = "flex";
+}
+
+function closeShareModal() {
+  const modal = document.getElementById("shareOptionModal");
+  if (modal) modal.style.display = "none";
+}
+
+function toggleShareItem(idx) {
+  const row = document.getElementById(`shareRow${idx}`);
+  const chk = document.getElementById(`shareChk${idx}`);
+  if (!row) return;
+  const sel = row.classList.toggle("selected");
+  if (chk) chk.textContent = sel ? "✓" : "";
+}
+
+function doShareToFeed(isAnon) {
+  const items = state.gratitude.filter(g => g && g.trim());
+  const selectedGratitude = items.filter((_, i) => {
+    const row = document.getElementById(`shareRow${i}`);
+    return row && row.classList.contains("selected");
+  });
+  if (selectedGratitude.length === 0) {
+    showToast("공유할 항목을 하나 이상 선택해주세요 ✦"); return;
+  }
+
+  closeShareModal();
+
+  const nick = getNickname();
+  const today = todayKey();
+  const entry = {
+    nickname:  isAnon ? "익명" : nick,
+    date:      today,
+    gratitude: selectedGratitude,
+    mood:      state.mood,
+    note:      state.note || "",
+    timestamp: Date.now(),
+    anon:      isAnon,
+    origNick:  nick,  // 항상 실명 저장 (중복 방지용)
+  };
+
+  if (!feedRef) { showToast("Firebase 연결 오류예요 🔥"); return; }
+
+  feedRef.push(entry)
+    .then(() => {
+      addSharedKey(today);
+      sharedToday = true;
+      showToast("그룹에 공유됐어요 🌿");
+      render(); // 공유 버튼 상태 업데이트
+    })
+    .catch(err => {
+      console.error("공유 실패:", err);
+      showToast("공유에 실패했어요. Firebase 규칙을 확인해주세요 🔥");
+    });
+}
+
+// ══════════════════════════════════════════
+// 피드 렌더
+// ══════════════════════════════════════════
+const MOOD_EMOJI = { "좋음":"😊","평온":"😌","행복":"🥰","힘듦":"😮‍💨","피곤":"😴" };
+
+function renderFeed() {
+  // 빨간 점 제거
+  _feedNewCount = 0;
+  const dot = document.getElementById("feedDot");
+  if (dot) dot.style.display = "none";
+
+  if (!firebaseReady) return `
+    <div class="card" style="text-align:center;padding:40px 20px">
+      <div style="font-size:32px;margin-bottom:12px">🔥</div>
+      <div style="font-size:14px;color:var(--ink-soft);line-height:1.8">
+        Firebase가 연결되지 않았어요.<br>인터넷 연결을 확인해주세요.
+      </div>
+    </div>`;
+
+  if (feedLoading && feedEntries.length === 0) return `
+    <div style="text-align:center;padding:60px 20px">
+      <div class="feed-spinner"></div>
+      <div style="color:var(--ink-faint);font-size:13px">피드 불러오는 중...</div>
+    </div>`;
+
+  if (feedEntries.length === 0) return `
+    <div class="card" style="text-align:center;padding:40px 20px">
+      <div style="font-size:40px;margin-bottom:12px">🌿</div>
+      <div style="font-size:14px;color:var(--ink-soft);line-height:1.9">
+        아직 공유된 감사 기록이 없어요.<br>
+        오늘 탭에서 감사를 기록하고<br>
+        그룹에 공유해보세요!
+      </div>
+    </div>`;
+
+  const myNick = getNickname();
+  const cards = feedEntries.map(entry => {
+    const isMe = entry.origNick === myNick || (!entry.anon && entry.nickname === myNick);
+    const moodEmoji = MOOD_EMOJI[entry.mood] || "";
+    const timeStr = entry.timestamp
+      ? formatDateShort(localDateStr(new Date(entry.timestamp)))
+      : entry.date || "";
+    const items = (entry.gratitude || []).map(g =>
+      `<div class="feed-item">✦ ${escHtml(g)}</div>`).join("");
+    const noteHtml = entry.note
+      ? `<div class="feed-note">"${escHtml(entry.note)}"</div>` : "";
+    const anonBadge = entry.anon
+      ? `<span class="feed-anon-badge">익명</span>` : "";
+
+    return `
+      <div class="feed-card ${isMe ? "feed-card-mine" : ""}">
+        <div class="feed-card-header">
+          <div class="feed-card-nick">
+            ${moodEmoji ? `<span style="margin-right:5px">${moodEmoji}</span>` : ""}
+            <strong>${escHtml(entry.nickname)}</strong>${anonBadge}
+          </div>
+          <div class="feed-card-date">${timeStr}</div>
+        </div>
+        <div class="feed-items">${items}</div>
+        ${noteHtml}
+      </div>`;
+  }).join("");
+
+  return `
+    <div class="feed-header-row">
+      <div style="font-family:'DM Serif Display',serif;font-size:17px;color:var(--ink)">
+        🌿 그룹 피드
+      </div>
+      <div style="font-size:11px;color:var(--ink-faint)">${feedEntries.length}개의 감사 기록</div>
+    </div>
+    ${cards}`;
 }
 
 // init()은 Firebase SDK 로드 완료 후 자동 호출됨 (head의 DOMContentLoaded 참고)
