@@ -2908,6 +2908,10 @@ function renderFeed() {
     const anonBadge = entry.anon
       ? `<span class="feed-anon-badge">익명</span>` : "";
 
+    const deleteBtn = isMe
+      ? `<button class="feed-delete-btn" onclick="deleteFeedEntry('${entry.id}')">삭제</button>`
+      : "";
+
     return `
       <div class="feed-card ${isMe ? "feed-card-mine" : ""}">
         <div class="feed-card-header">
@@ -2915,7 +2919,10 @@ function renderFeed() {
             ${moodEmoji ? `<span style="margin-right:5px">${moodEmoji}</span>` : ""}
             <strong>${escHtml(entry.nickname)}</strong>${anonBadge}
           </div>
-          <div class="feed-card-date">${timeStr}</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="feed-card-date">${timeStr}</div>
+            ${deleteBtn}
+          </div>
         </div>
         <div class="feed-items">${items}</div>
         ${noteHtml}
@@ -2931,5 +2938,23 @@ function renderFeed() {
     </div>
     ${cards}`;
 }
+
+// ══════════════════════════════════════════
+// 피드 삭제 (내 글만)
+// ══════════════════════════════════════════
+async function deleteFeedEntry(id) {
+  if (!confirm("이 피드를 삭제할까요?")) return;
+  if (!feedRef || !firebaseReady) { showToast("Firebase 연결 오류예요 🔥"); return; }
+  try {
+    await feedRef.child(id).remove();
+    feedEntries = feedEntries.filter(e => e.id !== id);
+    showToast("삭제했어요.");
+    render();
+  } catch(err) {
+    console.error("피드 삭제 실패:", err);
+    showToast("삭제에 실패했어요. 다시 시도해주세요.");
+  }
+}
+
 
 // init()은 Firebase SDK 로드 완료 후 자동 호출됨 (head의 DOMContentLoaded 참고)

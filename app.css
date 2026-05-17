@@ -373,6 +373,15 @@
     color:var(--ink-faint); font-style:italic; line-height:1.7;
     border-top:1px solid var(--border); padding-top:8px;
   }
+
+  .feed-delete-btn {
+    font-size:11px; font-family:'DM Sans',sans-serif; font-weight:600;
+    color:var(--ink-faint); background:transparent;
+    border:1.5px solid var(--border); border-radius:10px;
+    padding:3px 9px; cursor:pointer; transition:all 0.18s;
+    white-space:nowrap;
+  }
+  .feed-delete-btn:active { background:var(--surface-pressed); transform:scale(0.93); color:var(--accent-rose); border-color:var(--accent-rose); }
   .feed-anon-badge {
     font-size:10px; background:var(--surface); border:1px solid var(--border);
     border-radius:8px; padding:1px 7px; color:var(--ink-faint);
