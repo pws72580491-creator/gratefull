@@ -54,9 +54,9 @@ function initFirebase() {
         userRef   = db.ref(`grateful-users/${_enc}/history`);
         prayerRef = db.ref(`grateful-users/${_enc}/prayers`);
       }
-    // 피드는 전역 공유 경로
-    feedRef = db.ref("grateful-feed");
     }
+    // 피드는 전역 공유 경로 (닉네임 무관하게 항상 초기화)
+    feedRef = db.ref("grateful-feed");
     return true;
   } catch(e) {
     console.error("Firebase 초기화 실패:", e);
@@ -87,5 +87,7 @@ window.addEventListener("DOMContentLoaded", () => {
         }, 800);
       }
     })
-    .finally(() => { if (typeof init === "function") init(); });
+    .finally(() => {
+      if (typeof init === "function") init();
+    });
 });

@@ -295,6 +295,7 @@
   .share-btn:active { transform:scale(0.97); opacity:0.82; }
   .share-btn.shared { opacity:0.55; cursor:default; background:var(--surface); }
   .share-btn.share-btn-dim { opacity:0.40; cursor:default; }
+  .share-btn.share-btn-firebase { opacity:0.72; cursor:pointer; border-style:dashed; }  /* Firebase 연결 중 - 보이되 연결 중 표시 */
 
   /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      공유 모달 항목 선택
