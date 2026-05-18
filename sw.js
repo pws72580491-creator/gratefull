@@ -1,4 +1,4 @@
-const CACHE_NAME = 'grateful-v4';
+const CACHE_NAME = 'grateful-v5';
 
 const CACHE_FILES = [
   './',
