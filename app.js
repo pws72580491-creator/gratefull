@@ -871,8 +871,8 @@ function renderWrite() {
   const dots = Array.from({length: totalSlots}, (_,i) =>
     `<div class="dot ${i<filled?"filled":""}"></div>`).join("");
 
-  // 공유 버튼은 renderWrite 이후 updateShareBtn()으로 DOM 직접 갱신
-  const shareBtnHtml = `<div id="shareBtnWrap"></div>`;
+  // 공유 버튼 — 항상 고정 표시, 클릭 시 상태 판단
+  const shareBtnHtml = `<button class="share-btn" id="shareMainBtn" onclick="onShareBtnClick()">🌿 그룹에 공유하기</button>`;
 
   return `
     <div style="text-align:center;font-size:12.5px;color:var(--brown-faint);margin:2px 0 14px;font-style:italic;letter-spacing:0.3px;animation:fadeSlideIn 0.4s ease">${greeting}</div>
@@ -2700,27 +2700,42 @@ function renderPrayer() {
 // render()와 독립적으로 항상 정확한 상태 유지
 // ══════════════════════════════════════════
 function updateShareBtn() {
-  const wrap = document.getElementById("shareBtnWrap");
-  if (!wrap) return; // write 탭이 아님
+  // 버튼 텍스트/스타일만 업데이트 — 버튼 자체는 항상 DOM에 존재
+  const btn = document.getElementById("shareMainBtn");
+  if (!btn) return;
 
   const alreadyShared = sharedToday || getSharedKeys().includes(todayKey());
-  // state.gratitude + 현재 textarea 값 모두 확인
-  const textareaHasContent = Array.from(
-    document.querySelectorAll(".g-textarea")
-  ).some(ta => ta.value.trim());
-  const stateHasContent = state.gratitude.some(g => g && g.trim());
-  const hasContent = stateHasContent || textareaHasContent;
-
   if (alreadyShared) {
-    wrap.innerHTML = `<button class="share-btn shared" onclick="showToast('오늘은 이미 공유했어요 ✦')">✦ 오늘 그룹에 공유됨</button>`;
-  } else if (!hasContent) {
-    wrap.innerHTML = `<button class="share-btn share-btn-dim" onclick="showToast('감사한 내용을 먼저 입력해주세요 ✦')">🌿 그룹에 공유하기</button>`;
-  } else if (!firebaseReady) {
-    // Firebase 미연결이어도 버튼은 완전히 보임 (클릭 시 안내)
-    wrap.innerHTML = `<button class="share-btn share-btn-firebase" onclick="showToast('Firebase 연결 중이에요. 잠시 후 다시 시도해주세요 🌿')">🌿 그룹에 공유하기</button>`;
+    btn.textContent = "✦ 오늘 그룹에 공유됨";
+    btn.className = "share-btn shared";
   } else {
-    wrap.innerHTML = `<button class="share-btn" onclick="openShareModal()">🌿 그룹에 공유하기</button>`;
+    btn.textContent = "🌿 그룹에 공유하기";
+    btn.className = "share-btn";
   }
+}
+
+// 공유 버튼 클릭 시 상태 판단 (버튼은 항상 보임)
+function onShareBtnClick() {
+  const alreadyShared = sharedToday || getSharedKeys().includes(todayKey());
+  if (alreadyShared) { showToast("오늘은 이미 공유했어요 ✦"); return; }
+
+  // 내용 동기화
+  state.gratitude.forEach((_, i) => {
+    const ta = document.getElementById(`gtext${i}`);
+    if (ta) state.gratitude[i] = ta.value;
+  });
+  const noteEl = document.getElementById("noteText");
+  if (noteEl) state.note = noteEl.value.trim();
+
+  const hasContent = state.gratitude.some(g => g && g.trim());
+  if (!hasContent) { showToast("감사한 내용을 먼저 입력해주세요 ✦"); return; }
+
+  if (!firebaseReady) { showToast("Firebase 연결 중이에요. 잠시 후 다시 시도해주세요 🌿"); return; }
+
+  // 미저장이면 자동 저장
+  if (!saved) doSave();
+
+  openShareModal();
 }
 
 // ══════════════════════════════════════════
