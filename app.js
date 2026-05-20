@@ -226,6 +226,7 @@ async function loadHistoryFromCloud() {
     updateStreak();
     syncChallengeWithHistory();
     if (currentView === "history" || currentView === "write") render();
+    if (currentView === "write") setTimeout(updateShareBtn, 50); // 클라우드 로드 후 공유 버튼 갱신
 
     // 기도 데이터도 클라우드에서 로드
     await loadPrayersFromCloud();
@@ -646,6 +647,7 @@ function init() {
         clearInterval(_retryInterval);
         _startCloudSync();
         render(); // ✅ Firebase 연결 후 공유 버튼 상태 갱신
+        updateShareBtn();
       }
       if (_retryCount >= 20) clearInterval(_retryInterval); // 10초 후 포기
     }, 500);
@@ -736,6 +738,7 @@ function render() {
       el.innerHTML += `<div class="app-footer">Grateful <span>v${APP_VERSION}</span> · ${APP_BUILD}<br>Made with 🌿 for a more thankful day</div>`;
       attachListeners();
       updateSwipeHints();
+      if (currentView === 'write') updateShareBtn();
       renderNotifBtn();
       // exit class 제거 후 enter → requestAnimationFrame으로 repaint 보장
       el.classList.remove("view-exit");
@@ -868,19 +871,8 @@ function renderWrite() {
   const dots = Array.from({length: totalSlots}, (_,i) =>
     `<div class="dot ${i<filled?"filled":""}"></div>`).join("");
 
-  // 공유 버튼 상태 결정
-  const alreadyShared = sharedToday || getSharedKeys().includes(todayKey());
-  const hasContent    = state.gratitude.some(g => g && g.trim());
-  let shareBtnHtml = "";
-  if (alreadyShared) {
-    shareBtnHtml = `<button class="share-btn shared" onclick="showToast('오늘은 이미 공유했어요 ✦')">✦ 오늘 그룹에 공유됨</button>`;
-  } else if (!firebaseReady) {
-    shareBtnHtml = `<button class="share-btn share-btn-firebase" onclick="showToast('Firebase 연결 중이에요. 잠시 후 다시 시도해주세요 🌿')">🌿 그룹에 공유하기</button>`;
-  } else if (!hasContent) {
-    shareBtnHtml = `<button class="share-btn share-btn-dim" onclick="showToast('감사한 내용을 먼저 입력해주세요 ✦')">🌿 그룹에 공유하기</button>`;
-  } else {
-    shareBtnHtml = `<button class="share-btn" onclick="openShareModal()">🌿 그룹에 공유하기</button>`;
-  }
+  // 공유 버튼은 renderWrite 이후 updateShareBtn()으로 DOM 직접 갱신
+  const shareBtnHtml = `<div id="shareBtnWrap"></div>`;
 
   return `
     <div style="text-align:center;font-size:12.5px;color:var(--brown-faint);margin:2px 0 14px;font-style:italic;letter-spacing:0.3px;animation:fadeSlideIn 0.4s ease">${greeting}</div>
@@ -1325,6 +1317,7 @@ function doSave() {
   if (btn) { btn.textContent = "✓  저장됨"; btn.classList.add("saved"); }
 
   spawnHearts();
+  updateShareBtn(); // 저장 후 공유 버튼 즉시 갱신
 
   // 챌린지 체크인 완료 알림
   const cState = getChallengeState();
@@ -2701,6 +2694,35 @@ function renderPrayer() {
   return stats + form + filterRow + cards;
 }
 
+
+// ══════════════════════════════════════════
+// 공유 버튼 상태 갱신 (DOM 직접 업데이트)
+// render()와 독립적으로 항상 정확한 상태 유지
+// ══════════════════════════════════════════
+function updateShareBtn() {
+  const wrap = document.getElementById("shareBtnWrap");
+  if (!wrap) return; // write 탭이 아님
+
+  const alreadyShared = sharedToday || getSharedKeys().includes(todayKey());
+  // state.gratitude + 현재 textarea 값 모두 확인
+  const textareaHasContent = Array.from(
+    document.querySelectorAll(".g-textarea")
+  ).some(ta => ta.value.trim());
+  const stateHasContent = state.gratitude.some(g => g && g.trim());
+  const hasContent = stateHasContent || textareaHasContent;
+
+  if (alreadyShared) {
+    wrap.innerHTML = `<button class="share-btn shared" onclick="showToast('오늘은 이미 공유했어요 ✦')">✦ 오늘 그룹에 공유됨</button>`;
+  } else if (!hasContent) {
+    wrap.innerHTML = `<button class="share-btn share-btn-dim" onclick="showToast('감사한 내용을 먼저 입력해주세요 ✦')">🌿 그룹에 공유하기</button>`;
+  } else if (!firebaseReady) {
+    // Firebase 미연결이어도 버튼은 완전히 보임 (클릭 시 안내)
+    wrap.innerHTML = `<button class="share-btn share-btn-firebase" onclick="showToast('Firebase 연결 중이에요. 잠시 후 다시 시도해주세요 🌿')">🌿 그룹에 공유하기</button>`;
+  } else {
+    wrap.innerHTML = `<button class="share-btn" onclick="openShareModal()">🌿 그룹에 공유하기</button>`;
+  }
+}
+
 // ══════════════════════════════════════════
 // 그룹 공유 — localStorage 키 관리
 // ══════════════════════════════════════════
@@ -2867,7 +2889,7 @@ function doShareToFeed(isAnon) {
       addSharedKey(today);
       sharedToday = true;
       showToast("그룹에 공유됐어요 🌿");
-      render(); // 공유 버튼 상태 업데이트
+      updateShareBtn(); // 공유 버튼 즉시 갱신
     })
     .catch(err => {
       console.error("공유 실패:", err);
