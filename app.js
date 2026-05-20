@@ -1,8 +1,8 @@
 // ══════════════════════════════════════════
 // 앱 버전
 // ══════════════════════════════════════════
-const APP_VERSION = "3.20";
-const APP_BUILD   = "2026.05.19";
+const APP_VERSION = "3.19";
+const APP_BUILD   = "2026.05.04";
 
 // ══════════════════════════════════════════
 // 서비스 워커 (Web Push + 백그라운드 알림)
@@ -612,22 +612,6 @@ function showToast(msg, duration) {
 
 // ══════════════════════════════════════════
 // ══════════════════════════════════════════
-// Firebase 클라우드 동기화 시작 (firebaseReady=true 확인 후 호출)
-function _startCloudSync() {
-  const nick = getNickname();
-  // feedRef 재확인
-  if (!feedRef && db) feedRef = db.ref("grateful-feed");
-  if (nick) {
-    loadHistoryFromCloud().then(() => {
-      startUserHistoryListener();
-      startPrayerListener();
-    });
-  }
-  // 오늘 공유 여부 복원
-  sharedToday = getSharedKeys().includes(todayKey());
-  startFeedListener();
-}
-
 // 초기화
 // ══════════════════════════════════════════
 function init() {
@@ -635,20 +619,19 @@ function init() {
   initFontDecor();
   firebaseReady = initFirebase();
   if (firebaseReady) {
-    _startCloudSync();
-  } else {
-    // Firebase SDK가 아직 로드 중 → 최대 10초 대기 후 재시도
-    let _retryCount = 0;
-    const _retryInterval = setInterval(() => {
-      _retryCount++;
-      firebaseReady = initFirebase();
-      if (firebaseReady) {
-        clearInterval(_retryInterval);
-        _startCloudSync();
-        render(); // ✅ Firebase 연결 후 공유 버튼 상태 갱신
-      }
-      if (_retryCount >= 20) clearInterval(_retryInterval); // 10초 후 포기
-    }, 500);
+    // 닉네임이 있으면 즉시 클라우드 동기화 시작
+    const nick = getNickname();
+    // feedRef 초기화 (전역 공유 경로)
+    feedRef = db.ref("grateful-feed");
+    if (nick) {
+      loadHistoryFromCloud().then(() => {
+        startUserHistoryListener();
+        startPrayerListener();
+      });
+    }
+    // 오늘 공유 여부 복원
+    sharedToday = getSharedKeys().includes(todayKey());
+    startFeedListener();
   }
 
   const today = todayKey();
@@ -875,7 +858,7 @@ function renderWrite() {
   if (alreadyShared) {
     shareBtnHtml = `<button class="share-btn shared" onclick="showToast('오늘은 이미 공유했어요 ✦')">✦ 오늘 그룹에 공유됨</button>`;
   } else if (!firebaseReady) {
-    shareBtnHtml = `<button class="share-btn share-btn-firebase" onclick="showToast('Firebase 연결 중이에요. 잠시 후 다시 시도해주세요 🌿')">🌿 그룹에 공유하기</button>`;
+    shareBtnHtml = `<button class="share-btn share-btn-dim" onclick="showToast('Firebase 연결 중이에요. 잠시 후 다시 시도해주세요 🌿')">🌿 그룹에 공유하기</button>`;
   } else if (!hasContent) {
     shareBtnHtml = `<button class="share-btn share-btn-dim" onclick="showToast('감사한 내용을 먼저 입력해주세요 ✦')">🌿 그룹에 공유하기</button>`;
   } else {
