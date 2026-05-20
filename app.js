@@ -66,11 +66,16 @@ let prayerEditId = null;       // 수정 중인 기도 ID
 let prayerRef = null;          // Firebase ref: grateful-users/{nick}/prayers
 let prayerListener = null;     // 실시간 리스너
 // 피드 전역 변수 (firebase-init.js의 var feedRef와 공유)
-let feedListener  = null;
-let feedEntries   = [];
-let feedLoading   = false;
-let sharedToday   = false;
-let _feedNewCount = 0;
+let feedListener     = null;
+let feedEntries      = [];
+let feedLoading      = false;
+let sharedToday      = false;
+let _feedNewCount    = 0;
+// 피드 필터
+let feedAuthorFilter = "all";   // "all" | 닉네임
+let feedPeriodFilter = "all";   // "all" | "week" | "month" | "range"
+let feedRangeStart   = "";
+let feedRangeEnd     = "";
 
 // 오늘 사용할 힌트 세트
 let todayHints = HINT_POOL[new Date().getDay() % HINT_POOL.length];
@@ -89,16 +94,7 @@ function formatDate(str) {
 function formatDateShort(str) {
   return new Date(str+"T00:00:00").toLocaleDateString("ko-KR",{month:"long",day:"numeric"});
 }
-function timeAgo(ts) {
-  const diff = Date.now() - ts;
-  const m = Math.floor(diff / 60000);
-  if (m < 1)  return "방금 전";
-  if (m < 60) return `${m}분 전`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}시간 전`;
-  const day = Math.floor(h / 24);
-  return `${day}일 전`;
-}
+
 
 // ══════════════════════════════════════════
 // 저장소
@@ -551,6 +547,43 @@ JSON 형식으로만 응답하세요:
 // ══════════════════════════════════════════
 // 닉네임 모달
 // ══════════════════════════════════════════
+
+// ══════════════════════════════════════════
+// 프로필 (닉네임 변경)
+// ══════════════════════════════════════════
+function updateProfileBtn() {
+  const nick = getNickname();
+  const btn  = document.getElementById("profileBtn");
+  const span = document.getElementById("profileInitial");
+  if (!btn || !span) return;
+  if (nick) {
+    span.textContent = nick.charAt(0);
+    btn.title = `${nick} · 탭하면 변경`;
+  } else {
+    span.textContent = "?";
+    btn.title = "이름 설정";
+  }
+}
+
+function openProfileModal() {
+  const nick = getNickname();
+  const titleEl = document.getElementById("nickModalTitle");
+  const subEl   = document.getElementById("nickModalSub");
+  const inputEl = document.getElementById("nicknameInput");
+
+  if (nick) {
+    if (titleEl) titleEl.textContent = "이름 변경";
+    if (subEl)   subEl.textContent   = `현재 이름: ${nick}`;
+    if (inputEl) { inputEl.value = nick; inputEl.select(); }
+  } else {
+    if (titleEl) titleEl.textContent = "Grateful에 오신 걸 환영해요";
+    if (subEl)   subEl.innerHTML     = "앱에서 사용할 이름을 알려주세요.<br>나중에 설정에서 바꿀 수 있어요.";
+    if (inputEl) inputEl.value = "";
+  }
+  document.getElementById("nicknameModal").style.display = "flex";
+  setTimeout(() => inputEl && inputEl.focus(), 100);
+}
+
 function showNicknameModal() {
   document.getElementById("nicknameModal").style.display = "flex";
   setTimeout(() => document.getElementById("nicknameInput").focus(), 300);
@@ -558,9 +591,15 @@ function showNicknameModal() {
 function saveNickname() {
   const val = (document.getElementById("nicknameInput").value || "").trim();
   if (!val) { showToast("이름을 입력해주세요 😊"); return; }
+  const prevNick = getNickname();
   setNicknameLS(val);
   document.getElementById("nicknameModal").style.display = "none";
   document.getElementById("nicknameInput").value = "";
+  updateProfileBtn();
+  if (prevNick && prevNick !== val) {
+    feedAuthorFilter = "all";
+    showToast(`이름이 "${val}"(으)로 변경됐어요 ✦`);
+  }
   // userRef 갱신 후 클라우드 동기화
   updateUserRef(val);
   if (firebaseReady) {
@@ -740,6 +779,7 @@ function render() {
       updateSwipeHints();
       if (currentView === 'write') updateShareBtn();
       renderNotifBtn();
+  updateProfileBtn();
       // exit class 제거 후 enter → requestAnimationFrame으로 repaint 보장
       el.classList.remove("view-exit");
       requestAnimationFrame(() => {
@@ -1272,7 +1312,7 @@ function addGratitudeItem() {
     el.innerHTML = renderWrite();
     el.innerHTML += `<div class="app-footer">Grateful <span>v${APP_VERSION}</span> · ${APP_BUILD}<br>Made with 🌿 for a more thankful day</div>`;
     attachListeners();
-    
+    updateShareBtn(); // 항목 추가 후 공유 버튼 상태 갱신
     // 새로 추가된 마지막 textarea에 포커스
     const last = document.getElementById(`gtext${state.gratitude.length - 1}`);
     if (last) setTimeout(() => last.focus(), 50);
@@ -2915,6 +2955,53 @@ function doShareToFeed(isAnon) {
 // ══════════════════════════════════════════
 // 피드 렌더
 // ══════════════════════════════════════════
+
+// ══════════════════════════════════════════
+// 피드 필터 함수
+// ══════════════════════════════════════════
+function setFeedAuthorFilter(nick) {
+  feedAuthorFilter = nick;
+  render();
+}
+function setFeedPeriodFilter(period) {
+  feedPeriodFilter = period;
+  if (period === "range") {
+    // 기간 선택 UI는 이미 렌더에서 처리
+  }
+  render();
+}
+function applyFeedRange() {
+  const s = document.getElementById("feedRangeStart");
+  const e = document.getElementById("feedRangeEnd");
+  if (s) feedRangeStart = s.value;
+  if (e) feedRangeEnd   = e.value;
+  render();
+}
+
+// 시간 표시 (n분 전 / n시간 전 / n일 전)
+function timeAgo(ts) {
+  if (!ts) return "";
+  const diff = Date.now() - ts;
+  const min  = Math.floor(diff / 60000);
+  if (min < 1)  return "방금 전";
+  if (min < 60) return min + "분 전";
+  const hr = Math.floor(min / 60);
+  if (hr < 24)  return hr + "시간 전";
+  const day = Math.floor(hr / 24);
+  if (day < 7)  return day + "일 전";
+  return formatDateShort(localDateStr(new Date(ts)));
+}
+
+// 날짜 구분선 레이블 (2026년 5월 20일 수요일)
+function dateSeparatorLabel(dateStr) {
+  const days = ["일요일","월요일","화요일","수요일","목요일","금요일","토요일"];
+  try {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const dt = new Date(y, m-1, d);
+    return `${y}년 ${m}월 ${d}일 ${days[dt.getDay()]}`;
+  } catch { return dateStr; }
+}
+
 const MOOD_EMOJI = { "좋음":"😊","평온":"😌","행복":"🥰","힘듦":"😮‍💨","피곤":"😴" };
 
 function renderFeed() {
@@ -2931,66 +3018,173 @@ function renderFeed() {
       </div>
     </div>`;
 
-  // 로딩 중 스피너
   if (feedLoading) return `
     <div style="text-align:center;padding:60px 20px">
       <div class="feed-spinner"></div>
       <div style="color:var(--ink-faint);font-size:13px">피드 불러오는 중...</div>
     </div>`;
 
-  if (feedEntries.length === 0) return `
-    <div class="card" style="text-align:center;padding:40px 20px">
-      <div style="font-size:40px;margin-bottom:12px">🌿</div>
-      <div style="font-size:14px;color:var(--ink-soft);line-height:1.9">
-        아직 공유된 감사 기록이 없어요.<br>
-        오늘 탭에서 감사를 기록하고<br>
-        그룹에 공유해보세요!
+  const myNick = getNickname();
+
+  // ── 작성자 목록 (필터용) ──
+  const authorMap = {};
+  feedEntries.forEach(e => {
+    const key = e.anon ? "익명" : (e.origNick || e.nickname || "?");
+    authorMap[key] = (authorMap[key] || 0) + 1;
+  });
+  const authorKeys = Object.keys(authorMap).filter(k => k !== "익명");
+  const anonCount  = authorMap["익명"] || 0;
+
+  // ── 필터 적용 ──
+  let display = [...feedEntries];
+
+  // 작성자 필터
+  if (feedAuthorFilter !== "all") {
+    if (feedAuthorFilter === "anon") {
+      display = display.filter(e => e.anon);
+    } else {
+      display = display.filter(e =>
+        !e.anon && (e.origNick === feedAuthorFilter || e.nickname === feedAuthorFilter)
+      );
+    }
+  }
+
+  // 기간 필터
+  if (feedPeriodFilter === "week") {
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    display = display.filter(e => (e.timestamp || 0) >= cutoff);
+  } else if (feedPeriodFilter === "month") {
+    const now = new Date(); const m = now.getMonth(); const y = now.getFullYear();
+    display = display.filter(e => {
+      const d = new Date(e.timestamp || 0);
+      return d.getFullYear() === y && d.getMonth() === m;
+    });
+  } else if (feedPeriodFilter === "range" && feedRangeStart && feedRangeEnd) {
+    const s = new Date(feedRangeStart).getTime();
+    const e2 = new Date(feedRangeEnd).getTime() + 86400000;
+    display = display.filter(e => (e.timestamp||0) >= s && (e.timestamp||0) <= e2);
+  }
+
+  // 참여 인원 수
+  const participantSet = new Set(feedEntries.map(e => e.origNick || e.nickname).filter(Boolean));
+  const participantCount = participantSet.size;
+
+  // ── 헤더 ──
+  const header = `
+    <div class="feed-top-header">
+      <div class="feed-top-title">✦ 그룹 감사 피드</div>
+      <div class="feed-participant-badge">👥 ${participantCount}명 참여 중</div>
+    </div>`;
+
+  // ── 나 / 알림 / 나가기 행 ──
+  const myInitial = myNick ? myNick.charAt(0) : "?";
+  const toolbar = `
+    <div class="feed-toolbar">
+      <button class="feed-my-btn" onclick="setFeedAuthorFilter('${myNick}')">${myInitial} ${myNick || "나"}</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="feed-icon-btn" onclick="showToast('리마인더 설정은 설정에서 변경할 수 있어요 🔔')" title="알림">⏰</button>
+        <button class="feed-icon-btn" onclick="showToast('알림 설정은 설정에서 변경할 수 있어요 🔔')" title="알림">🔔</button>
+        <button class="feed-leave-btn" onclick="showLeaveGroupModal()">📋 나가기</button>
       </div>
     </div>`;
 
-  const myNick = getNickname();
-  const cards = feedEntries.map(entry => {
-    const isMe = entry.origNick === myNick || (!entry.anon && entry.nickname === myNick);
-    const moodEmoji = MOOD_EMOJI[entry.mood] || "";
-    const timeStr = entry.timestamp
-      ? formatDateShort(localDateStr(new Date(entry.timestamp)))
-      : entry.date || "";
-    const items = (entry.gratitude || []).map(g =>
-      `<div class="feed-item">✦ ${escHtml(g)}</div>`).join("");
-    const noteHtml = entry.note
-      ? `<div class="feed-note">"${escHtml(entry.note)}"</div>` : "";
-    const anonBadge = entry.anon
-      ? `<span class="feed-anon-badge">익명</span>` : "";
+  // ── 작성자 필터 버튼 ──
+  const totalCount = feedEntries.length;
+  let authorBtns = `<button class="feed-author-btn ${feedAuthorFilter==='all'?'active':''}" onclick="setFeedAuthorFilter('all')">전체 ${totalCount}</button>`;
+  authorKeys.forEach(nick => {
+    const cnt = authorMap[nick];
+    const initial = nick.charAt(0);
+    const isActive = feedAuthorFilter === nick;
+    authorBtns += `<button class="feed-author-btn ${isActive?'active':''}" onclick="setFeedAuthorFilter('${nick}')"><span class="feed-author-initial">${initial}</span> ${escHtml(nick)} ${cnt}</button>`;
+  });
+  if (anonCount > 0) {
+    authorBtns += `<button class="feed-author-btn ${feedAuthorFilter==='anon'?'active':''}" onclick="setFeedAuthorFilter('anon')">🌸 익명 ${anonCount}</button>`;
+  }
 
-    const deleteBtn = isMe
-      ? `<button class="feed-delete-btn" onclick="deleteFeedEntry('${entry.id}')">삭제</button>`
-      : "";
+  const authorFilter = `
+    <div class="feed-section-label">✦ 작성자</div>
+    <div class="feed-author-row">${authorBtns}</div>`;
 
-    return `
-      <div class="feed-card ${isMe ? "feed-card-mine" : ""}">
-        <div class="feed-card-header">
-          <div class="feed-card-nick">
-            ${moodEmoji ? `<span style="margin-right:5px">${moodEmoji}</span>` : ""}
-            <strong>${escHtml(entry.nickname)}</strong>${anonBadge}
+  // ── 기간 필터 ──
+  const periods = [
+    { key:"all",   label:"전체" },
+    { key:"week",  label:"주별" },
+    { key:"month", label:"월별" },
+    { key:"range", label:"기간" },
+  ];
+  const periodBtns = periods.map(p =>
+    `<button class="feed-period-btn ${feedPeriodFilter===p.key?'active':''}" onclick="setFeedPeriodFilter('${p.key}')">${p.label}</button>`
+  ).join("");
+
+  const rangeInputs = feedPeriodFilter === "range" ? `
+    <div class="feed-range-row">
+      <input type="date" id="feedRangeStart" class="feed-date-input" value="${feedRangeStart}">
+      <span style="color:var(--ink-faint);font-size:13px">~</span>
+      <input type="date" id="feedRangeEnd" class="feed-date-input" value="${feedRangeEnd}">
+      <button class="feed-range-apply" onclick="applyFeedRange()">적용</button>
+    </div>` : "";
+
+  const periodFilter = `
+    <div class="feed-section-label" style="margin-top:12px">📅 기간</div>
+    <div class="feed-period-row">${periodBtns}</div>
+    ${rangeInputs}`;
+
+  // ── 카드 목록 (날짜 구분선 포함) ──
+  let lastDate = "";
+  let cards = "";
+
+  if (display.length === 0) {
+    cards = `<div class="feed-empty">
+      <div style="font-size:36px;margin-bottom:10px">🌿</div>
+      <div>아직 공유된 감사 기록이 없어요.<br>오늘 탭에서 감사를 기록하고<br>그룹에 공유해보세요!</div>
+    </div>`;
+  } else {
+    display.forEach(entry => {
+      // 날짜 구분선
+      const entryDate = entry.date || localDateStr(new Date(entry.timestamp || 0));
+      if (entryDate !== lastDate) {
+        cards += `<div class="feed-date-sep"><span>${dateSeparatorLabel(entryDate)}</span></div>`;
+        lastDate = entryDate;
+      }
+
+      const isMe = entry.origNick === myNick || (!entry.anon && entry.nickname === myNick);
+      const moodEmoji = MOOD_EMOJI[entry.mood] || "";
+      const ago = timeAgo(entry.timestamp);
+      const initial = (entry.anon ? "익" : (entry.nickname || "?").charAt(0));
+      const items = (entry.gratitude || []).map(g =>
+        `<div class="feed-item-new">✦ ${escHtml(g)}</div>`).join("");
+      const noteHtml = entry.note
+        ? `<div class="feed-note">"${escHtml(entry.note)}"</div>` : "";
+      const meBadge = isMe ? `<span class="feed-me-badge">나</span>` : "";
+      const deleteBtn = isMe
+        ? `<button class="feed-delete-btn" onclick="deleteFeedEntry('${entry.id}')">삭제</button>` : "";
+
+      cards += `
+        <div class="feed-card-new ${isMe ? "feed-card-new-mine" : ""}">
+          <div class="feed-card-new-header">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div class="feed-avatar ${isMe?'feed-avatar-mine':''}">${initial}</div>
+              <div>
+                <div class="feed-nick-row">
+                  <span class="feed-nick-name">${escHtml(entry.nickname)}</span>
+                  ${meBadge}
+                  ${moodEmoji ? `<span style="font-size:14px">${moodEmoji}</span>` : ""}
+                </div>
+                <div class="feed-ago">${ago}</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              ${deleteBtn}
+            </div>
           </div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <div class="feed-card-date">${timeStr}</div>
-            ${deleteBtn}
-          </div>
-        </div>
-        <div class="feed-items">${items}</div>
-        ${noteHtml}
-      </div>`;
-  }).join("");
+          <div class="feed-items-new">${items}</div>
+          ${noteHtml}
+        </div>`;
+    });
+  }
 
-  return `
-    <div class="feed-header-row">
-      <div style="font-family:'DM Serif Display',serif;font-size:17px;color:var(--ink)">
-        🌿 그룹 피드
-      </div>
-      <div style="font-size:11px;color:var(--ink-faint)">${feedEntries.length}개의 감사 기록</div>
-    </div>
-    ${cards}`;
+  return header + toolbar + authorFilter + periodFilter +
+    `<div style="margin-top:16px">${cards}</div>`;
 }
 
 // ══════════════════════════════════════════

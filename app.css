@@ -285,7 +285,7 @@
      그룹 공유 버튼
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
   .share-btn {
-    width:100%; padding:14px; margin-top:11px;
+    width:100%; padding:14px; margin-top:11px; margin-bottom:20px;
     background:var(--green-bg); color:var(--green);
     border:1.5px solid var(--green-border); border-radius:22px;
     font-family:'DM Sans',sans-serif; font-size:13.5px; font-weight:700;
@@ -397,6 +397,178 @@
     animation:spin 0.8s linear infinite; margin:0 auto 12px;
   }
   @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     피드 헤더 / 툴바
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  .feed-top-header {
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:14px;
+  }
+  .feed-top-title {
+    font-family:'DM Serif Display',serif; font-size:19px;
+    color:var(--ink); font-style:italic; letter-spacing:0.2px;
+  }
+  .feed-participant-badge {
+    font-family:'DM Sans',sans-serif; font-size:11.5px; font-weight:700;
+    background:var(--terra-xlight); color:var(--terra);
+    border:1.5px solid rgba(193,122,82,0.25); border-radius:20px;
+    padding:5px 12px; white-space:nowrap;
+  }
+
+  .feed-toolbar {
+    display:flex; justify-content:space-between; align-items:center;
+    background:var(--card-bg); border:1.5px solid var(--card-border);
+    border-radius:18px; padding:10px 14px;
+    margin-bottom:14px; box-shadow:var(--shadow-card);
+  }
+  .feed-my-btn {
+    font-family:'DM Sans',sans-serif; font-size:13px; font-weight:700;
+    color:var(--ink); background:var(--terra-xlight);
+    border:1.5px solid rgba(193,122,82,0.30); border-radius:20px;
+    padding:6px 14px; cursor:pointer; transition:all 0.18s;
+  }
+  .feed-my-btn:active { transform:scale(0.94); }
+  .feed-icon-btn {
+    width:36px; height:36px; border-radius:50%;
+    background:var(--surface); border:1.5px solid var(--border);
+    font-size:16px; cursor:pointer; transition:all 0.18s;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .feed-icon-btn:active { transform:scale(0.92); }
+  .feed-leave-btn {
+    font-family:'DM Sans',sans-serif; font-size:12px; font-weight:600;
+    color:var(--ink-faint); background:var(--surface);
+    border:1.5px solid var(--border); border-radius:14px;
+    padding:6px 12px; cursor:pointer; transition:all 0.18s;
+  }
+  .feed-leave-btn:active { transform:scale(0.94); }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     피드 필터
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  .feed-section-label {
+    font-family:'DM Sans',sans-serif; font-size:11px; font-weight:700;
+    letter-spacing:0.8px; color:var(--ink-faint);
+    margin-bottom:8px;
+  }
+  .feed-author-row {
+    display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px;
+  }
+  .feed-author-btn {
+    font-family:'DM Sans',sans-serif; font-size:12px; font-weight:600;
+    color:var(--ink-soft); background:var(--surface);
+    border:1.5px solid var(--border); border-radius:20px;
+    padding:5px 12px; cursor:pointer; transition:all 0.18s;
+    display:flex; align-items:center; gap:5px; white-space:nowrap;
+  }
+  .feed-author-btn.active {
+    background:var(--terra); color:#fff; border-color:var(--terra);
+  }
+  .feed-author-btn:active { transform:scale(0.93); }
+  .feed-author-initial {
+    width:20px; height:20px; border-radius:50%;
+    background:rgba(193,122,82,0.18); color:var(--terra);
+    font-size:11px; font-weight:700;
+    display:inline-flex; align-items:center; justify-content:center;
+  }
+  .feed-author-btn.active .feed-author-initial {
+    background:rgba(255,255,255,0.25); color:#fff;
+  }
+
+  .feed-period-row {
+    display:flex; background:var(--surface); border-radius:14px;
+    padding:3px; border:1px solid var(--border); gap:3px;
+  }
+  .feed-period-btn {
+    flex:1; padding:7px 4px; border:none; border-radius:10px;
+    background:transparent; color:var(--ink-faint);
+    font-family:'DM Sans',sans-serif; font-size:12px; font-weight:600;
+    cursor:pointer; transition:all 0.18s;
+  }
+  .feed-period-btn.active {
+    background:var(--card-bg); color:var(--terra); font-weight:700;
+    box-shadow:var(--shadow-sm), 0 0 0 1px var(--border);
+  }
+  .feed-range-row {
+    display:flex; align-items:center; gap:8px; margin-top:8px;
+    flex-wrap:wrap;
+  }
+  .feed-date-input {
+    flex:1; min-width:120px; padding:7px 10px;
+    border:1.5px solid var(--border); border-radius:10px;
+    background:var(--surface); color:var(--ink);
+    font-family:'DM Sans',sans-serif; font-size:12px;
+    -webkit-appearance:none;
+  }
+  .feed-range-apply {
+    padding:7px 14px; border:none; border-radius:10px;
+    background:var(--terra); color:#fff;
+    font-family:'DM Sans',sans-serif; font-size:12px; font-weight:700;
+    cursor:pointer;
+  }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     피드 날짜 구분선 + 카드
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  .feed-date-sep {
+    display:flex; align-items:center; gap:10px;
+    margin:18px 0 10px; color:var(--terra);
+    font-family:'DM Sans',sans-serif; font-size:11.5px; font-weight:700;
+    letter-spacing:0.3px;
+  }
+  .feed-date-sep::before, .feed-date-sep::after {
+    content:''; flex:1; height:1px; background:var(--border);
+  }
+
+  .feed-card-new {
+    background:var(--card-bg); border:1.5px solid var(--card-border);
+    border-radius:20px; padding:16px 18px; margin-bottom:10px;
+    box-shadow:var(--shadow-card); animation:fadeSlideIn 0.28s ease both;
+  }
+  .feed-card-new-mine {
+    border-color:var(--terra-light);
+    background:linear-gradient(135deg,var(--card-bg),var(--terra-xlight));
+  }
+  .feed-card-new-header {
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:12px;
+  }
+  .feed-avatar {
+    width:38px; height:38px; border-radius:50%; flex-shrink:0;
+    background:var(--terra-xlight); border:2px solid var(--border);
+    color:var(--terra); font-family:'DM Serif Display',serif;
+    font-size:16px; font-weight:500;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .feed-avatar-mine {
+    background:var(--terra); color:#fff; border-color:var(--terra);
+  }
+  .feed-nick-row {
+    display:flex; align-items:center; gap:5px; margin-bottom:2px;
+  }
+  .feed-nick-name {
+    font-family:'DM Sans',sans-serif; font-size:14px; font-weight:700;
+    color:var(--ink);
+  }
+  .feed-me-badge {
+    font-size:10px; background:var(--terra); color:#fff;
+    border-radius:8px; padding:1px 7px;
+    font-family:'DM Sans',sans-serif; font-weight:700;
+  }
+  .feed-ago {
+    font-size:11px; color:var(--ink-faint);
+    font-family:'DM Sans',sans-serif;
+  }
+  .feed-items-new { padding:0 2px; }
+  .feed-item-new {
+    font-family:var(--font-writing); font-size:14px; color:var(--ink-soft);
+    line-height:1.8; padding:2px 0;
+  }
+  .feed-empty {
+    text-align:center; color:var(--ink-faint);
+    font-size:13px; padding:40px 20px; line-height:1.9;
+  }
   /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      키프레임
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
@@ -512,6 +684,30 @@
     50% { transform: rotate(-10deg) scale(1.1); }
     75% { transform: rotate(8deg) scale(1.05); }
     100% { transform: rotate(0deg) scale(1); }
+  }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     프로필 버튼 (헤더)
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  .profile-btn {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--terra-xlight);
+    border: 2px solid rgba(193,122,82,0.30);
+    cursor: pointer; transition: all 0.22s;
+    display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+  }
+  .profile-btn:active { transform: scale(0.90); }
+  .profile-btn::after {
+    content: '';
+    position: absolute; bottom: -1px; right: -1px;
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--green); border: 2px solid var(--header-bg);
+  }
+  .profile-initial {
+    font-family: 'DM Serif Display', serif;
+    font-size: 15px; font-weight: 500;
+    color: var(--terra); line-height: 1;
   }
   .ai-theme-btn {
     background: linear-gradient(135deg, var(--terra), var(--gold));
@@ -778,7 +974,7 @@
      MAIN
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
   .main {
-    padding: 20px 16px max(112px, calc(env(safe-area-inset-bottom) + 96px));
+    padding: 20px 16px max(160px, calc(env(safe-area-inset-bottom) + 140px));
     max-width: 520px; margin: 0 auto;
     position: relative; z-index: 1;
   }
