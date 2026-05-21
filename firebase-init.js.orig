@@ -48,9 +48,8 @@ function initFirebase() {
     // 내 기록 ref — 닉네임이 있으면 바로 연결
     const _nick = getNickname ? getNickname() : (localStorage.getItem("grateful-nickname") || "");
     if (_nick) {
-      // encodeNick이 app.js에 정의되어 있으면 재사용, 없으면 인라인 처리
-      const _encFn = typeof encodeNick === "function" ? encodeNick : (n) => n.replace(/[.#$[\]\/]/g, "_").trim() || "user";
-      const _enc = _encFn(_nick);
+      // encodeNick이 app.js에 있으므로 직접 인라인 처리
+      const _enc = _nick.replace(/[.#$[\]\/]/g, "_").trim();
       if (_enc) {
         userRef   = db.ref(`grateful-users/${_enc}/history`);
         prayerRef = db.ref(`grateful-users/${_enc}/prayers`);
