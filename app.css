@@ -624,13 +624,19 @@
     opacity: 0.28;
   }
 
-  .header-top { display: flex; justify-content: space-between; align-items: center; }
+  /* header-top: 날짜 + ✦ 버튼만 */
+  .header-top {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 6px;
+  }
+  .header-right { display: flex; align-items: center; gap: 9px; }
 
   .app-name {
     font-family: 'DM Serif Display', Georgia, serif;
     font-size: 13px; letter-spacing: 6px; color: var(--terra);
-    text-transform: uppercase; font-weight: 400; margin-bottom: 3px;
+    text-transform: uppercase; font-weight: 400;
     display: flex; align-items: center; gap: 8px; font-style: italic;
+    margin-bottom: 4px;
   }
   .app-name-leaf {
     font-style: normal; font-size: 15px;
@@ -638,13 +644,21 @@
     display: inline-block;
     filter: drop-shadow(0 1px 3px var(--terra-glow));
   }
+
+  /* 날짜 + 뱃지/프로필 행 */
+  .header-date-row {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px;
+  }
   .today-date {
     font-family: 'DM Serif Display', Georgia, serif;
-    font-size: 18px; font-weight: 500; color: var(--ink); line-height: 1.2;
+    font-size: 22px; font-weight: 500; color: var(--ink); line-height: 1.2;
     letter-spacing: 0.2px;
     transition: color 0.3s;
   }
-  .header-right { display: flex; align-items: center; gap: 9px; }
+  .header-badges {
+    display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  }
 
   .streak-badge {
     font-family: 'DM Sans', sans-serif;
@@ -690,24 +704,21 @@
      프로필 버튼 (헤더)
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
   .profile-btn {
-    width: 36px; height: 36px; border-radius: 50%;
+    height: 32px; min-width: 36px; width: auto;
+    border-radius: 20px;
     background: var(--terra-xlight);
     border: 2px solid rgba(193,122,82,0.30);
     cursor: pointer; transition: all 0.22s;
     display: flex; align-items: center; justify-content: center;
-    position: relative; overflow: hidden;
+    padding: 0 12px;
+    position: relative;
   }
   .profile-btn:active { transform: scale(0.90); }
-  .profile-btn::after {
-    content: '';
-    position: absolute; bottom: -1px; right: -1px;
-    width: 10px; height: 10px; border-radius: 50%;
-    background: var(--green); border: 2px solid var(--header-bg);
-  }
   .profile-initial {
-    font-family: 'DM Serif Display', serif;
-    font-size: 15px; font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-weight: 700;
     color: var(--terra); line-height: 1;
+    white-space: nowrap;
   }
   .ai-theme-btn {
     background: linear-gradient(135deg, var(--terra), var(--gold));
@@ -1927,6 +1938,14 @@
   .prayer-filter-row{display:flex;gap:4px;margin-bottom:12px;background:var(--surface);border-radius:14px;padding:3px;border:1px solid var(--border);}
   .prayer-filter-btn{flex:1;padding:8px;border:none;border-radius:10px;background:transparent;color:var(--ink-faint);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;}
   .prayer-filter-btn.active{background:var(--card-bg);color:rgba(101,83,147,1);box-shadow:var(--shadow-sm),0 0 0 1px var(--border);font-weight:700;}
+
+  /* 기도 기간 필터 */
+  .prayer-period-section{margin-bottom:14px;}
+  .prayer-period-label{font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:var(--terra);margin-bottom:6px;display:flex;align-items:center;gap:5px;}
+  .prayer-period-row{display:flex;background:var(--surface);border-radius:14px;padding:3px;border:1px solid var(--border);gap:3px;}
+  .prayer-period-btn{flex:1;padding:7px 4px;border:none;border-radius:10px;background:transparent;color:var(--ink-faint);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .18s;}
+  .prayer-period-btn.active{background:var(--card-bg);color:var(--terra);font-weight:700;box-shadow:var(--shadow-sm),0 0 0 1px var(--border);}
+  .prayer-range-row{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;}
   .prayer-card{background:var(--card-bg);border:1.5px solid var(--card-border);border-radius:18px;padding:15px 16px;margin-bottom:10px;box-shadow:var(--shadow-card);animation:fadeSlideIn .28s ease both;}
   .prayer-card.answered{border-color:rgba(94,158,108,.35);background:linear-gradient(135deg,var(--card-bg),rgba(94,158,108,.03));}
   .prayer-card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:7px;}

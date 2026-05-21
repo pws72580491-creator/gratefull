@@ -244,18 +244,21 @@
 
 <!-- 헤더 -->
 <div class="header">
+  <!-- 앱 이름 -->
+  <div class="app-name"><span class="app-name-leaf">🌿</span> Grateful <span class="version-badge" id="headerVersion">v3.20</span></div>
+  <!-- 날짜 + 테마버튼 행 -->
   <div class="header-top">
-    <div>
-      <div class="app-name"><span class="app-name-leaf">🌿</span> Grateful <span class="version-badge" id="headerVersion">v3.20</span></div>
-      <div class="today-date" id="headerDate"></div>
-    </div>
+    <div class="today-date" id="headerDate"></div>
     <div class="header-right">
-      <div class="streak-badge" id="streakBadge">🔥 0일 연속</div>
-      <button class="profile-btn" id="profileBtn" onclick="openProfileModal()" title="프로필 변경">
-        <span class="profile-initial" id="profileInitial">?</span>
-      </button>
       <button class="ai-theme-btn" id="aiThemeBtn" onclick="recommendTheme()" title="AI 눈 편한 테마 추천"><span class="ai-sparkle">✦</span></button>
     </div>
+  </div>
+  <!-- 연속뱃지 + 프로필 행 -->
+  <div class="header-date-row">
+    <div class="streak-badge" id="streakBadge">🔥 0일 연속</div>
+    <button class="profile-btn" id="profileBtn" onclick="openProfileModal()" title="프로필 변경">
+      <span class="profile-initial" id="profileInitial">?</span>
+    </button>
   </div>
   <div class="tabs">
     <button class="tab-btn active" onclick="setView('write')">오늘</button>
@@ -263,7 +266,7 @@
     <button class="tab-btn" onclick="setView('prayer')">🙏 기도</button>
     <button class="tab-btn" id="feedTabBtn" onclick="setView('feed')">피드<span class="feed-dot" id="feedDot" style="display:none"></span></button>
   </div>
-  <div style="height:6px;display:flex;align-items:center;justify-content:center;margin-top:4px">
+  <div style="height:24px;display:flex;align-items:center;justify-content:center;margin-top:2px">
     <span class="sync-badge" id="syncBadge"></span>
   </div>
 </div>

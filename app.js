@@ -65,6 +65,10 @@ let prayerFilter = "active";  // "active" | "answered"
 let prayerEditId = null;       // 수정 중인 기도 ID
 let prayerRef = null;          // Firebase ref: grateful-users/{nick}/prayers
 let prayerListener = null;     // 실시간 리스너
+// 기도 기간 필터
+let prayerPeriodFilter = "all"; // "all" | "week" | "month" | "range"
+let prayerRangeStart   = "";
+let prayerRangeEnd     = "";
 // 피드 전역 변수 (firebase-init.js의 var feedRef와 공유)
 let feedListener     = null;
 let feedEntries      = [];
@@ -557,7 +561,7 @@ function updateProfileBtn() {
   const span = document.getElementById("profileInitial");
   if (!btn || !span) return;
   if (nick) {
-    span.textContent = nick.charAt(0);
+    span.textContent = nick;
     btn.title = `${nick} · 탭하면 변경`;
   } else {
     span.textContent = "?";
@@ -2578,6 +2582,19 @@ function setPrayerFilter(f) {
   render();
 }
 
+function setPrayerPeriodFilter(period) {
+  prayerPeriodFilter = period;
+  render();
+}
+
+function applyPrayerRange() {
+  const s = document.getElementById("prayerRangeStart");
+  const e = document.getElementById("prayerRangeEnd");
+  if (s) prayerRangeStart = s.value;
+  if (e) prayerRangeEnd   = e.value;
+  render();
+}
+
 function selectPrayerCat(cat) {
   document.querySelectorAll(".prayer-cat-btn").forEach(b => {
     b.classList.toggle("sel", b.dataset.cat === cat);
@@ -2625,7 +2642,19 @@ function renderPrayer() {
   const all = Object.values(prayers).sort((a,b) => b.createdAt - a.createdAt);
   const active   = all.filter(p => !p.answered);
   const answered = all.filter(p => p.answered);
-  const display  = prayerFilter === "answered" ? answered : active;
+  let display  = prayerFilter === "answered" ? answered : active;
+
+  // 기간 필터 적용 (date 필드 기준: "YYYY-MM-DD")
+  if (prayerPeriodFilter === "week") {
+    const cutoff = localDateStr(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+    display = display.filter(p => (p.date || "") >= cutoff);
+  } else if (prayerPeriodFilter === "month") {
+    const now = new Date();
+    const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+    display = display.filter(p => (p.date || "").startsWith(ym));
+  } else if (prayerPeriodFilter === "range" && prayerRangeStart && prayerRangeEnd) {
+    display = display.filter(p => (p.date||"") >= prayerRangeStart && (p.date||"") <= prayerRangeEnd);
+  }
 
   const stats = `
     <div class="prayer-hero">
@@ -2662,11 +2691,32 @@ function renderPrayer() {
       <button class="prayer-add-btn" onclick="addPrayer()">🙏 기도 제목 올리기</button>
     </div>`;
 
-  // 필터 탭
+  // 기도중/응답받음 탭
   const filterRow = `
     <div class="prayer-filter-row">
       <button class="prayer-filter-btn ${prayerFilter==="active"?"active":""}" onclick="setPrayerFilter('active')">🙏 기도 중 (${active.length})</button>
       <button class="prayer-filter-btn ${prayerFilter==="answered"?"active":""}" onclick="setPrayerFilter('answered')">✅ 응답받음 (${answered.length})</button>
+    </div>`;
+
+  // 기간 필터
+  const periodBtns = ["all","week","month","range"].map((p,i) => {
+    const labels = ["전체","주간별","월별","기간별"];
+    return `<button class="prayer-period-btn ${prayerPeriodFilter===p?"active":""}" onclick="setPrayerPeriodFilter('${p}')">${labels[i]}</button>`;
+  }).join("");
+
+  const rangeInputs = prayerPeriodFilter === "range" ? `
+    <div class="prayer-range-row">
+      <input type="date" id="prayerRangeStart" class="feed-date-input" value="${prayerRangeStart}">
+      <span style="color:var(--ink-faint);font-size:13px">~</span>
+      <input type="date" id="prayerRangeEnd" class="feed-date-input" value="${prayerRangeEnd}">
+      <button class="feed-range-apply" onclick="applyPrayerRange()">적용</button>
+    </div>` : "";
+
+  const periodFilter = `
+    <div class="prayer-period-section">
+      <div class="prayer-period-label">📅 기간</div>
+      <div class="prayer-period-row">${periodBtns}</div>
+      ${rangeInputs}
     </div>`;
 
   // 카드 목록
@@ -2731,7 +2781,7 @@ function renderPrayer() {
     }).join("");
   }
 
-  return stats + form + filterRow + cards;
+  return stats + form + filterRow + periodFilter + cards;
 }
 
 
@@ -3095,7 +3145,7 @@ function renderFeed() {
     const cnt = authorMap[nick];
     const initial = nick.charAt(0);
     const isActive = feedAuthorFilter === nick;
-    authorBtns += `<button class="feed-author-btn ${isActive?'active':''}" onclick="setFeedAuthorFilter('${nick}')"><span class="feed-author-initial">${initial}</span> ${escHtml(nick)} ${cnt}</button>`;
+    authorBtns += `<button class="feed-author-btn ${isActive?'active':''}" onclick="setFeedAuthorFilter('${nick}')">${escHtml(nick)} ${cnt}</button>`;
   });
   if (anonCount > 0) {
     authorBtns += `<button class="feed-author-btn ${feedAuthorFilter==='anon'?'active':''}" onclick="setFeedAuthorFilter('anon')">🌸 익명 ${anonCount}</button>`;
