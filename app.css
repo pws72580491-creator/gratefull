@@ -285,7 +285,7 @@
      그룹 공유 버튼
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
   .share-btn {
-    width:100%; padding:14px; margin-top:11px; margin-bottom:20px;
+    width:100%; padding:18px; margin-top:11px; margin-bottom:20px;
     background:var(--green-bg); color:var(--green);
     border:1.5px solid var(--green-border); border-radius:22px;
     font-family:'DM Sans',sans-serif; font-size:13.5px; font-weight:700;
