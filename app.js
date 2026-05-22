@@ -163,7 +163,10 @@ function setSyncStatus(status) {
 }
 
 function showSyncRulesGuide() {
-  showToast("Firebase Console → Realtime Database → 규칙 탭에서 .read/.write를 true로 설정하세요", 6000);
+  // ⚠️ 전체 .write:true 는 누구나 쓸 수 있어 위험 → 경로별 허용 권장
+  // 권장 규칙: grateful-users/$nick 과 grateful-feed 경로만 허용
+  // (README Firebase Rules 섹션 참고)
+  showToast("Firebase Console → Realtime Database → 규칙 탭에서 경로별 read/write를 허용하세요. README의 Firebase Rules 예시를 참고하세요.", 7000);
 }
 
 function updateUserRef(nick) {
@@ -322,12 +325,7 @@ const THEME_META = {
   matcha:      { bgColor: "#e8ede0", dark: false, icon: "🍵",  label: "말차 그린" },
   sunset:      { bgColor: "#fae4cc", dark: false, icon: "🍊",  label: "선셋 오렌지" },
 };
-const THEMES = {
-  sepia:       { bgColor: "#f2e3c6", dark: false, icon: "🌿", label: "웜 세피아" },
-  "ios-white": { bgColor: "#f2f2f7", dark: false, icon: "☁️", label: "iOS 화이트" },
-  "matcha":    { bgColor: "#e8ede0", dark: false, icon: "🍵", label: "말차 그린" },
-  "sunset":    { bgColor: "#fae4cc", dark: false, icon: "🍊", label: "선셋 오렌지" },
-};
+// THEMES 는 THEME_META 로 통합되어 제거됨
 
 const THEME_CLASSES = ["theme-sepia","theme-ios-white","theme-matcha","theme-sunset"];
 
@@ -336,7 +334,7 @@ function getSystemDark() { return window.matchMedia && window.matchMedia("(prefe
 function applyTheme(theme) {
   const html = document.documentElement;
   html.classList.remove("light","dark","theme-sepia","theme-aurora","theme-blue","theme-ios-white","theme-ios-dark","theme-matcha","theme-sunset"); // cleanup
-  const t = THEMES[theme] || THEMES["sepia"];
+  const t = THEME_META[theme] || THEME_META["sepia"];
   if (theme === "ios-white")     html.classList.add("theme-ios-white");
   else if (theme === "matcha")   html.classList.add("theme-matcha");
   else if (theme === "sunset")   html.classList.add("theme-sunset");
@@ -954,12 +952,10 @@ function renderWrite() {
       <div class="card-label">한 줄 메모 <span class="card-label-opt">(선택)</span></div>
       <textarea class="note-textarea" id="noteText" rows="2" placeholder="오늘 하루를 한 줄로...">${escHtml(state.note)}</textarea>
     </div>
-    <div class="bottom-action-bar">
-      <button class="save-btn ${saved?"saved":""}" id="saveBtn" onclick="doSave()">
-        ${saved ? "✓  저장됨" : "저장하기"}
-      </button>
-      ${shareBtnHtml}
-    </div>
+    ${shareBtnHtml}
+    <button class="save-btn ${saved?"saved":""}" id="saveBtn" onclick="doSave()">
+      ${saved ? "✓  저장됨" : "저장하기"}
+    </button>
   `;
 }
 
@@ -1161,6 +1157,8 @@ function saveHistEdit(dateKey) {
   h[dateKey].updatedAt = Date.now(); // ✅ 수정: updatedAt 갱신
   saveHistory(h);
   syncDayToCloud(dateKey, h[dateKey]); // ✅ 수정: 클라우드 동기화
+  _streakCache = null; // 과거 기록 수정 시 연속일 캐시 무효화
+  updateStreak();
   histEditMode = false;
   showToast("수정했어요 ✦");
   render();
@@ -1330,7 +1328,6 @@ function addGratitudeItem() {
   state.gratitude.push("");
 
   // 저장 버튼은 미저장 상태로 표시하되, 공유 버튼의 sharedToday 상태는 보존
-  const prevSaved = saved;
   saved = false;
   const el = document.getElementById("mainContent");
   if (el) {
@@ -1887,7 +1884,7 @@ function scheduleReminder() {
       try {
         // SW가 있으면 SW로 알림 (더 신뢰성 있음)
         if (swReg?.active) {
-          swReg.active.postMessage({ type: 'TEST_REMINDER' }); // TEST_REMINDER → 실제 알림
+          swReg.active.postMessage({ type: 'FIRE_REMINDER' }); // 실제 운영 알림
         } else {
           new Notification("오늘 감사 기록을 남겨보세요 🌿", {
             body: "하루의 따뜻한 순간들을 기억해요 ✦",
@@ -2042,7 +2039,10 @@ function syncChallengeWithHistory() {
 
   // ── 빠진 날 감지: 시작일 ~ 어제 사이에 기록 없는 날이 있으면 리셋 ──
   if (daysPassed > 0) {
-    for (let d = 0; d < daysPassed; d++) {
+    // lastCheckedDay: 이미 연속일 검증이 완료된 시작일 기준 경과일 수
+    // → 이미 검증한 구간은 재스캔하지 않음 (앱이 오래될수록 성능 절약)
+    const fromDay = s.lastCheckedDay || 0;
+    for (let d = fromDay; d < daysPassed; d++) {
       const checkDate = new Date(startDate);
       checkDate.setDate(startDate.getDate() + d);
       const k = localDateStr(checkDate);
@@ -2055,6 +2055,12 @@ function syncChallengeWithHistory() {
         saveChallengeState({ id: "week7", startDate: today, checkins: [], stageHistory });
         return; // 리셋 후 종료
       }
+    }
+    // 오늘 이전까지 모두 확인됨 → lastCheckedDay 갱신
+    s = getChallengeState();
+    if ((s.lastCheckedDay || 0) < daysPassed) {
+      s.lastCheckedDay = daysPassed;
+      saveChallengeState(s);
     }
   }
 
@@ -2412,6 +2418,7 @@ function importData() {
       histCalYear  = new Date().getFullYear();
       histCalMonth = new Date().getMonth();
       histSelectedDate = todayKey();
+      _streakCache = null; // 가져온 기록 반영 위해 캐시 무효화
       updateStreak();
       syncChallengeWithHistory();
       render();

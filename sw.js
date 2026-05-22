@@ -99,6 +99,7 @@ self.addEventListener('message', e => {
   const d = e.data || {};
   if (d.type === 'SET_REMINDER')    _scheduleSW(d.schedule);
   if (d.type === 'CANCEL_REMINDER') { clearTimeout(_swTimer); _swTimer = null; }
+  if (d.type === 'FIRE_REMINDER')   _fireReminder();  // 실제 운영 리마인더 (scheduleReminder 폴백)
   if (d.type === 'TEST_REMINDER') {
     self.registration.showNotification('테스트 알림 🌿', {
       body: '백그라운드 알림이 정상 작동해요 ✦', tag: 'grateful-test',
