@@ -318,9 +318,9 @@
   }
   .share-btn:active { transform:scale(0.97); opacity:0.85; }
   .share-btn.shared {
-    background:var(--surface); color:var(--ink-faint);
-    border-color:var(--border); cursor:default;
-    font-weight:600;
+    background: var(--bg-accent); color: var(--brown-faint);
+    border-color: var(--terra-xlight); cursor: default;
+    font-weight: 600;
   }
 
   /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
