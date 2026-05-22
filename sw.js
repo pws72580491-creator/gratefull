@@ -1,15 +1,11 @@
-// ─────────────────────────────────────────
-// 버전을 올리면 install 이벤트가 재실행되어
-// 모든 캐시가 교체됩니다. 코드 배포 후 반드시
-// APP_VER를 올려주세요.
-// ─────────────────────────────────────────
-const APP_VER    = '3.22';
-const CACHE_NAME = `grateful-v${APP_VER}`;
+const CACHE_NAME = 'grateful-v5';
 
-// 오프라인용 정적 자산 (아이콘·폰트 제외한 코어만)
 const CACHE_FILES = [
   './',
   './index.html',
+  './app.css',
+  './app.js',
+  './firebase-init.js',
   './manifest.json',
   './apple-touch-icon.png',
   './favicon.png',
@@ -17,25 +13,10 @@ const CACHE_FILES = [
   './icons/icon-512x512.png',
 ];
 
-// Network-First 로 처리할 앱 파일 (항상 최신 코드 사용)
-const NETWORK_FIRST = [
-  '/app.js',
-  '/app.css',
-  '/firebase-init.js',
-  '/sw.js',
-];
-
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE_NAME)
-      // cache: 'reload' → HTTP 캐시 무시하고 서버에서 직접 받아옴
-      .then(cache => Promise.all(
-        CACHE_FILES.map(url =>
-          fetch(url, { cache: 'reload' })
-            .then(res => { if (res.ok) cache.put(url, res); })
-            .catch(() => {})
-        )
-      ))
+      .then(cache => cache.addAll(CACHE_FILES))
       .then(() => self.skipWaiting())
   );
 });
@@ -48,37 +29,20 @@ self.addEventListener('activate', e => e.waitUntil(
 
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-
-  // ── app.js / app.css / firebase-init.js → Network-First ──
-  // 항상 서버에서 최신 코드를 받고, 오프라인일 때만 캐시 폴백
-  if (NETWORK_FIRST.some(p => url.pathname.endsWith(p))) {
-    e.respondWith(
-      fetch(e.request, { cache: 'no-cache' })
-        .then(res => {
-          if (res && res.ok) {
-            caches.open(CACHE_NAME).then(c => c.put(e.request, res.clone()));
-          }
-          return res;
-        })
-        .catch(() => caches.match(e.request))
-    );
-    return;
-  }
-
-  // ── 페이지 자신(index.html) → Network-First + 캐시 폴백 ──
+  // 페이지 자신 → Cache-First + 백그라운드 갱신
   if (e.request.mode === 'navigate') {
     e.respondWith(
-      fetch(e.request, { cache: 'no-cache' })
-        .then(res => {
+      caches.match(e.request).then(cached => {
+        const network = fetch(e.request).then(res => {
           if (res && res.ok) caches.open(CACHE_NAME).then(c => c.put(e.request, res.clone()));
           return res;
-        })
-        .catch(() => caches.match(e.request))
+        }).catch(() => cached);
+        return cached || network;
+      })
     );
     return;
   }
-
-  // ── 폰트 → Cache-First (용량 크고 변경 없음) ──
+  // 폰트 → Cache-First
   if (url.hostname.includes('fonts.gstatic.com') || url.hostname.includes('fonts.googleapis.com')) {
     e.respondWith(
       caches.match(e.request).then(cached => cached ||
@@ -88,7 +52,6 @@ self.addEventListener('fetch', e => {
         }).catch(() => new Response('', { status: 408 }))
       )
     );
-    return;
   }
   // Firebase, gstatic (SDK), Anthropic → 기본 네트워크
 });

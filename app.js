@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════
 // 앱 버전
 // ══════════════════════════════════════════
-const APP_VERSION = "3.22";
+const APP_VERSION = "3.21";
 const APP_BUILD   = "2026.05.22";
 
 // ══════════════════════════════════════════
@@ -69,7 +69,6 @@ let prayerListener = null;     // 실시간 리스너
 let prayerPeriodFilter = "all"; // "all" | "week" | "month" | "range"
 let prayerRangeStart   = "";
 let prayerRangeEnd     = "";
-let prayerWeekOffset   = 0;     // 0=이번 주, -1=지난 주, ...
 // 피드 전역 변수 (firebase-init.js의 var feedRef와 공유)
 let feedListener     = null;
 let feedEntries      = [];
@@ -953,10 +952,12 @@ function renderWrite() {
       <div class="card-label">한 줄 메모 <span class="card-label-opt">(선택)</span></div>
       <textarea class="note-textarea" id="noteText" rows="2" placeholder="오늘 하루를 한 줄로...">${escHtml(state.note)}</textarea>
     </div>
-    ${shareBtnHtml}
-    <button class="save-btn ${saved?"saved":""}" id="saveBtn" onclick="doSave()">
-      ${saved ? "✓  저장됨" : "저장하기"}
-    </button>
+    <div class="action-btn-row">
+      ${shareBtnHtml}
+      <button class="save-btn ${saved?"saved":""}" id="saveBtn" onclick="doSave()">
+        ${saved ? "✓  저장됨" : "저장하기"}
+      </button>
+    </div>
   `;
 }
 
@@ -2618,26 +2619,7 @@ function setPrayerFilter(f) {
 }
 
 function setPrayerPeriodFilter(period) {
-  if (period === "week") prayerWeekOffset = 0; // 주별 탭 진입 시 이번 주로 리셋
   prayerPeriodFilter = period;
-  render();
-}
-
-function getPrayerWeekRange(offset) {
-  const today = new Date();
-  const dow = today.getDay(); // 0=일
-  const sun = new Date(today);
-  sun.setDate(today.getDate() - dow + offset * 7);
-  sun.setHours(0, 0, 0, 0);
-  const sat = new Date(sun);
-  sat.setDate(sun.getDate() + 6);
-  return { start: localDateStr(sun), end: localDateStr(sat) };
-}
-
-function movePrayerWeek(delta) {
-  // 미래 주 이동 차단
-  if (delta > 0 && prayerWeekOffset >= 0) return;
-  prayerWeekOffset += delta;
   render();
 }
 
@@ -2701,8 +2683,8 @@ function renderPrayer() {
 
   // 기간 필터 적용 (date 필드 기준: "YYYY-MM-DD")
   if (prayerPeriodFilter === "week") {
-    const range = getPrayerWeekRange(prayerWeekOffset);
-    display = display.filter(p => (p.date || "") >= range.start && (p.date || "") <= range.end);
+    const cutoff = localDateStr(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+    display = display.filter(p => (p.date || "") >= cutoff);
   } else if (prayerPeriodFilter === "month") {
     const now = new Date();
     const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
@@ -2754,27 +2736,10 @@ function renderPrayer() {
     </div>`;
 
   // 기간 필터
-  // 기간 필터
   const periodBtns = ["all","week","month","range"].map((p,i) => {
-    const labels = ["전체","주별","월별","기간"];
+    const labels = ["전체","주간별","월별","기간별"];
     return `<button class="prayer-period-btn ${prayerPeriodFilter===p?"active":""}" onclick="setPrayerPeriodFilter('${p}')">${labels[i]}</button>`;
   }).join("");
-
-  // 주별 네비게이션 UI
-  let weekNavHtml = "";
-  if (prayerPeriodFilter === "week") {
-    const range = getPrayerWeekRange(prayerWeekOffset);
-    const [sy, sm, sd] = range.start.split("-").map(Number);
-    const [ey, em, ed] = range.end.split("-").map(Number);
-    const weekLabel = `${sy}년 ${sm}월 ${sd}일 ~ ${em}월 ${ed}일`;
-    const canNext = prayerWeekOffset < 0;
-    weekNavHtml = `
-      <div class="prayer-week-nav">
-        <button class="prayer-week-btn" onclick="movePrayerWeek(-1)">‹ 이전</button>
-        <span class="prayer-week-label">${weekLabel}</span>
-        <button class="prayer-week-btn ${canNext?"":"disabled"}" onclick="movePrayerWeek(1)" ${canNext?"":"disabled"}>다음 ›</button>
-      </div>`;
-  }
 
   const rangeInputs = prayerPeriodFilter === "range" ? `
     <div class="prayer-range-row">
@@ -2788,7 +2753,6 @@ function renderPrayer() {
     <div class="prayer-period-section">
       <div class="prayer-period-label">📅 기간</div>
       <div class="prayer-period-row">${periodBtns}</div>
-      ${weekNavHtml}
       ${rangeInputs}
     </div>`;
 
