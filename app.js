@@ -181,11 +181,13 @@ async function syncDayToCloud(dateKey, entry) {
   if (!firebaseReady || !userRef) return;
   setSyncStatus("syncing");
   try {
+    // entry.updatedAt 그대로 사용 — 새 Date.now()를 쓰면 리스너가
+    // "더 새 데이터"로 오인해 changed=true → 불필요한 re-render 발생
     await userRef.child(dateKey).set({
       gratitude: entry.gratitude || [],
       mood:      entry.mood || null,
       note:      entry.note || "",
-      updatedAt: Date.now(),
+      updatedAt: entry.updatedAt || Date.now(),
     });
     setSyncStatus("synced");
   } catch(e) {
@@ -274,6 +276,7 @@ function startUserHistoryListener() {
       syncChallengeWithHistory();
       setSyncStatus("synced");
       if (currentView === "history") render();
+      else if (currentView === "write") updateShareBtn(); // 공유 버튼 상태 보존
     }
   }, err => {
     console.warn("실시간 동기화 오류:", err);
