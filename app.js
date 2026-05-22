@@ -793,7 +793,11 @@ function render() {
       else if (currentView === "prayer")    el.innerHTML = renderPrayer();
       else if (currentView === "feed")      el.innerHTML = renderFeed();
       // 공통 하단 버전 푸터
-      el.innerHTML += `<div class="app-footer">Grateful <span>v${APP_VERSION}</span> · ${APP_BUILD}<br>Made with 🌿 for a more thankful day</div>`;
+      // innerHTML += 금지: 전체 DOM 재파싱으로 shareMainBtn 등 이벤트/노드가 깨짐
+      const _footer = document.createElement("div");
+      _footer.className = "app-footer";
+      _footer.innerHTML = `Grateful <span>v${APP_VERSION}</span> · ${APP_BUILD}<br>Made with 🌿 for a more thankful day`;
+      el.appendChild(_footer);
       attachListeners();
       updateSwipeHints();
       if (currentView === 'write') updateShareBtn();
@@ -1329,7 +1333,10 @@ function addGratitudeItem() {
   const el = document.getElementById("mainContent");
   if (el) {
     el.innerHTML = renderWrite();
-    el.innerHTML += `<div class="app-footer">Grateful <span>v${APP_VERSION}</span> · ${APP_BUILD}<br>Made with 🌿 for a more thankful day</div>`;
+    const _footer2 = document.createElement("div");
+    _footer2.className = "app-footer";
+    _footer2.innerHTML = `Grateful <span>v${APP_VERSION}</span> · ${APP_BUILD}<br>Made with 🌿 for a more thankful day`;
+    el.appendChild(_footer2);
     attachListeners();
     updateShareBtn(); // sharedToday 기준으로 공유 버튼 상태 정확히 반영
     // 새로 추가된 마지막 textarea에 포커스
