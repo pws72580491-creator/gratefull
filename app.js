@@ -2827,8 +2827,8 @@ function renderPrayer() {
 
   // 기간 필터
   // 기간 필터
-  const periodBtns = ["all","week","month","range"].map((p,i) => {
-    const labels = ["전체","주별","월별","기간"];
+  const periodBtns = ["week","month","range","all"].map((p,i) => {
+    const labels = ["주별","월별","기간","전체"];
     return `<button class="prayer-period-btn ${prayerPeriodFilter===p?"active":""}" onclick="setPrayerPeriodFilter('${p}')">${labels[i]}</button>`;
   }).join("");
 
