@@ -689,6 +689,18 @@ function _startCloudSync() {
 // 초기화
 // ══════════════════════════════════════════
 function init() {
+  // ── 버전 변경 시 구버전 SW 캐시 강제 제거 ──────────────
+  const _storedVer = localStorage.getItem('grateful-app-ver');
+  if (_storedVer !== APP_VERSION) {
+    localStorage.setItem('grateful-app-ver', APP_VERSION);
+    // 구버전 SW 캐시 전체 삭제 (백그라운드)
+    if ('caches' in window) {
+      caches.keys().then(keys =>
+        Promise.all(keys.filter(k => !k.includes(APP_VERSION)).map(k => caches.delete(k)))
+      ).catch(() => {});
+    }
+  }
+  // ────────────────────────────────────────────────────────
   initTheme();
   initFontDecor();
   firebaseReady = initFirebase();
