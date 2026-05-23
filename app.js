@@ -1,7 +1,3 @@
-// ── 단일 HTML 모드: SW Blob URL 등록 ──
-// 알림·리마인더는 작동, 오프라인 캐시는 미지원
-// _getSwBlobUrl() 제거됨 — 파일 분리 모드에서는 ./sw.js 직접 참조
-
 // ══════════════════════════════════════════
 // 앱 버전
 // ══════════════════════════════════════════
@@ -1699,6 +1695,39 @@ async function initServiceWorker() {
       type: 'classic',
     });
     console.log('[SW] sw.js 등록됨:', swReg.scope);
+
+    // ── 새 SW 감지 → 자동 활성화 ──────────────────────
+    // waiting 상태의 새 SW가 있으면 즉시 skipWaiting 요청
+    function _activateWaitingSW(reg) {
+      if (reg.waiting) {
+        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+      }
+    }
+    // 이미 waiting 중인 SW가 있으면 지금 바로 처리
+    _activateWaitingSW(swReg);
+    // 앞으로 새 SW가 설치 완료되면 바로 활성화
+    swReg.addEventListener('updatefound', () => {
+      const newSW = swReg.installing;
+      if (!newSW) return;
+      newSW.addEventListener('statechange', () => {
+        if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+          // 새 버전 설치 완료 → skipWaiting 요청 후 페이지 리로드
+          newSW.postMessage({ type: 'SKIP_WAITING' });
+        }
+      });
+    });
+    // controllerchange = 새 SW가 페이지를 제어하기 시작
+    let _reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (_reloading) return;
+      _reloading = true;
+      // 자동 리로드 (사용자에게 투명하게 처리)
+      window.location.reload();
+    });
+    // ──────────────────────────────────────────────────
+
+    // 주기적 업데이트 체크 (앱이 오래 열려 있을 때 대비)
+    setInterval(() => { swReg.update().catch(() => {}); }, 60 * 60 * 1000); // 1시간마다
 
     // 현재 페이지 URL을 SW에 캐시하도록 요청
     const sw = swReg.active || swReg.installing || swReg.waiting;
