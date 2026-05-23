@@ -1,8 +1,8 @@
 // ══════════════════════════════════════════
 // 앱 버전
 // ══════════════════════════════════════════
-const APP_VERSION = "3.22";
-const APP_BUILD   = "2026.05.22";
+const APP_VERSION = "3.23";
+const APP_BUILD   = "2026.05.24";
 
 // ══════════════════════════════════════════
 // 서비스 워커 (Web Push + 백그라운드 알림)
@@ -3300,10 +3300,10 @@ function renderFeed() {
 
   // ── 기간 필터 ──
   const periods = [
-    { key:"all",   label:"전체" },
     { key:"week",  label:"주별" },
     { key:"month", label:"월별" },
     { key:"range", label:"기간" },
+    { key:"all",   label:"전체" },
   ];
   const periodBtns = periods.map(p =>
     `<button class="feed-period-btn ${feedPeriodFilter===p.key?'active':''}" onclick="setFeedPeriodFilter('${p.key}')">${p.label}</button>`
