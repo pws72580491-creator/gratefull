@@ -1060,6 +1060,9 @@ function renderHistory() {
         <button onclick="setView('prayer')" style="font-size:11px;color:var(--terra);background:none;border:none;cursor:pointer;font-family:inherit;">🙏 기도노트 →</button>
       </div>
       ${renderChallengeCompact()}
+    </div>
+    <div style="margin-top:10px;text-align:center">
+      <button onclick="hardResetSW()" style="background:none;border:none;font-size:11px;color:var(--ink-faint);cursor:pointer;font-family:inherit;text-decoration:underline;padding:8px 0;">⚙ 앱 업데이트 / 캐시 초기화</button>
     </div>`;
 }
 
@@ -1670,6 +1673,30 @@ function dismissPwaBanner() {
   // 7일 후 만료되는 타임스탬프 저장 (앱 재시작 후에도 유지)
   const expiry = Date.now() + 7 * 24 * 60 * 60 * 1000;
   localStorage.setItem('grateful-pwa-dismissed', String(expiry));
+}
+
+// 구버전 SW·캐시 강제 제거 후 리로드 (설치 문제 해결용)
+async function hardResetSW() {
+  if (!confirm('앱 캐시를 초기화하고 최신 버전으로 재시작합니다.\n(데이터는 삭제되지 않아요)')) return;
+  try {
+    // 1. 모든 캐시 삭제
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+    // 2. SW 전체 해제
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }
+    // 3. 버전 키 초기화 (다음 로드 시 재설치 유도)
+    localStorage.removeItem('grateful-app-ver');
+    localStorage.removeItem('grateful-pwa-dismissed');
+    // 4. 강제 리로드 (캐시 무시)
+    location.reload(true);
+  } catch(e) {
+    showToast('초기화 중 오류가 발생했어요. 직접 브라우저 캐시를 삭제해주세요.');
+  }
 }
 
 function _showIosGuide() {
