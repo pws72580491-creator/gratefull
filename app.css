@@ -284,29 +284,6 @@
   /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      그룹 공유 버튼
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-     저장 + 공유 버튼 한 줄 레이아웃
-  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-  .action-btn-row {
-    display: flex;
-    gap: 10px;
-    margin-top: 11px;
-    margin-bottom: 0;
-  }
-  .action-btn-row .share-btn {
-    flex: 2;
-    width: auto;
-    margin-top: 0;
-    margin-bottom: 0;
-    padding: 14px 10px;
-  }
-  .action-btn-row .save-btn {
-    flex: 3;
-    width: auto;
-    margin-top: 0;
-    padding: 14px 10px;
-  }
-
   .share-btn {
     width:100%; padding:14px; margin-top:11px; margin-bottom:20px;
     background:var(--green-bg); color:var(--green);
@@ -318,9 +295,9 @@
   }
   .share-btn:active { transform:scale(0.97); opacity:0.85; }
   .share-btn.shared {
-    background: var(--bg-accent); color: var(--brown-faint);
-    border-color: var(--terra-xlight); cursor: default;
-    font-weight: 600;
+    background:var(--surface); color:var(--ink-faint);
+    border-color:var(--border); cursor:default;
+    font-weight:600;
   }
 
   /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1968,6 +1945,11 @@
   .prayer-period-row{display:flex;background:var(--surface);border-radius:14px;padding:3px;border:1px solid var(--border);gap:3px;}
   .prayer-period-btn{flex:1;padding:7px 4px;border:none;border-radius:10px;background:transparent;color:var(--ink-faint);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .18s;}
   .prayer-period-btn.active{background:var(--card-bg);color:var(--terra);font-weight:700;box-shadow:var(--shadow-sm),0 0 0 1px var(--border);}
+  .prayer-week-nav{display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:8px 12px;margin-top:8px;gap:8px;}
+  .prayer-week-label{flex:1;text-align:center;font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:600;color:var(--ink);}
+  .prayer-week-btn{background:var(--card-bg);border:1.5px solid var(--border);border-radius:10px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--terra);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;white-space:nowrap;}
+  .prayer-week-btn:active{opacity:.7;}
+  .prayer-week-btn.disabled{color:var(--ink-faint);border-color:var(--border);cursor:default;opacity:.4;}
   .prayer-range-row{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;}
   .prayer-card{background:var(--card-bg);border:1.5px solid var(--card-border);border-radius:18px;padding:15px 16px;margin-bottom:10px;box-shadow:var(--shadow-card);animation:fadeSlideIn .28s ease both;}
   .prayer-card.answered{border-color:rgba(94,158,108,.35);background:linear-gradient(135deg,var(--card-bg),rgba(94,158,108,.03));}

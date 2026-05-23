@@ -1,4 +1,3 @@
-// ── Firebase 설정 ──
 const firebaseConfig = {
   apiKey:            "AIzaSyAsdBSNUDMtiJA82eA9B5x0DwJ2oswmo2k",
   authDomain:        "grateful-c4abc.firebaseapp.com",

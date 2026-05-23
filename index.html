@@ -20,9 +20,6 @@
 <link rel="manifest" href="./manifest.json">
 <link rel="icon" type="image/png" href="./favicon.png">
 <link rel="stylesheet" href="./app.css">
-
-<!-- Firebase 설정 + 초기화 -->
-<script src="./firebase-init.js"></script>
 </head>
 <body>
 <!-- PWA 설치 배너 (Android + iOS 통합) -->
@@ -246,7 +243,7 @@
 <!-- 헤더 -->
 <div class="header">
   <!-- 앱 이름 -->
-  <div class="app-name"><span class="app-name-leaf">🌿</span> Grateful <span class="version-badge" id="headerVersion">v3.21</span></div>
+  <div class="app-name"><span class="app-name-leaf">🌿</span> Grateful <span class="version-badge" id="headerVersion">v3.22</span></div>
   <!-- 날짜 + 테마버튼 행 -->
   <div class="header-top">
     <div class="today-date" id="headerDate"></div>
@@ -282,6 +279,7 @@
 <div class="swipe-hint left"  id="swipeLeft">‹</div>
 <div class="swipe-hint right" id="swipeRight">›</div>
 
+<script src="./firebase-init.js"></script>
 <script src="./app.js"></script>
 </body>
 </html>
