@@ -1702,7 +1702,7 @@
     border: 1px solid var(--border); background: var(--surface);
     border-radius: 12px; padding: 7px 12px;
     font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--ink);
-    outline: none; transition: border-color 0.25s; width: 94px; text-align: center;
+    outline: none; transition: border-color 0.25s; width: 120px; text-align: center;
   }
   .time-input:focus { border-color: var(--terra); }
 
