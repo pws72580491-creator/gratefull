@@ -965,10 +965,21 @@ function renderWrite() {
       <div class="card-label">한 줄 메모 <span class="card-label-opt">(선택)</span></div>
       <textarea class="note-textarea" id="noteText" rows="2" placeholder="오늘 하루를 한 줄로...">${escHtml(state.note)}</textarea>
     </div>
-    ${shareBtnHtml}
-    <button class="save-btn ${saved?"saved":""}" id="saveBtn" onclick="doSave()">
-      ${saved ? "✓  저장됨" : "저장하기"}
-    </button>
+    <div class="bottom-action-bar">
+      <div class="bottom-action-wrap">
+
+        ${shareBtnHtml}
+
+        <button
+          class="save-btn ${saved?"saved":""}"
+          id="saveBtn"
+          onclick="saveToday()"
+        >
+          ${saved ? "✓  저장됨" : "저장하기"}
+        </button>
+
+      </div>
+    </div>
   `;
 }
 
@@ -1371,7 +1382,7 @@ function selectMood(label) {
   if (btn) { btn.textContent = "저장하기"; btn.classList.remove("saved"); }
 }
 
-function doSave() {
+function saveToday() {
   // ✅ 수정: 저장 직전 DOM에서 최신 값 동기화 (빠른 입력 후 즉시 저장 시 stale state 방지)
   const noteEl = document.getElementById("noteText");
   if (noteEl) state.note = noteEl.value.trim();
@@ -2968,7 +2979,7 @@ function onShareBtnClick() {
   if (!firebaseReady) { showToast("Firebase 연결 중이에요. 잠시 후 다시 시도해주세요 🌿"); return; }
 
   // 미저장이면 자동 저장
-  if (!saved) doSave();
+  if (!saved) saveToday();
 
   openShareModal();
 }
@@ -3071,7 +3082,7 @@ function openShareModal() {
   if (!nick) { showNicknameModal(); return; }
 
   // 미저장이면 자동 저장
-  if (!saved) doSave();
+  if (!saved) saveToday();
 
   // 항목 선택 목록 렌더
   const items = state.gratitude.filter(g => g && g.trim());
