@@ -968,8 +968,6 @@ function renderWrite() {
     <div class="bottom-action-bar">
       <div class="bottom-action-wrap">
 
-        ${shareBtnHtml}
-
         <button
           class="save-btn ${saved?"saved":""}"
           id="saveBtn"
@@ -977,6 +975,8 @@ function renderWrite() {
         >
           ${saved ? "✓  저장됨" : "저장하기"}
         </button>
+
+        ${shareBtnHtml}
 
       </div>
     </div>
