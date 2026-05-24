@@ -81,6 +81,7 @@ let feedAuthorFilter = "all";   // "all" | 닉네임
 let feedPeriodFilter = "week";   // "all" | "week" | "month" | "range"
 let feedRangeStart   = "";
 let feedRangeEnd     = "";
+let feedWeekOffset   = 0;     // 0=이번 주, -1=지난 주, ...
 
 // 오늘 사용할 힌트 세트
 let todayHints = HINT_POOL[new Date().getDay() % HINT_POOL.length];
@@ -3170,9 +3171,24 @@ function setFeedAuthorFilter(nick) {
 }
 function setFeedPeriodFilter(period) {
   feedPeriodFilter = period;
-  if (period === "range") {
-    // 기간 선택 UI는 이미 렌더에서 처리
-  }
+  if (period === "week") feedWeekOffset = 0; // 주별 탭 진입 시 이번 주로 리셋
+  render();
+}
+
+function getFeedWeekRange(offset) {
+  const today = new Date();
+  const dow = today.getDay(); // 0=일
+  const sun = new Date(today);
+  sun.setDate(today.getDate() - dow + offset * 7);
+  sun.setHours(0, 0, 0, 0);
+  const sat = new Date(sun);
+  sat.setDate(sun.getDate() + 6);
+  return { start: localDateStr(sun), end: localDateStr(sat) };
+}
+
+function moveFeedWeek(delta) {
+  if (delta > 0 && feedWeekOffset >= 0) return; // 미래 주 이동 차단
+  feedWeekOffset += delta;
   render();
 }
 function applyFeedRange() {
@@ -3256,8 +3272,10 @@ function renderFeed() {
 
   // 기간 필터
   if (feedPeriodFilter === "week") {
-    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    display = display.filter(e => (e.timestamp || 0) >= cutoff);
+    const range = getFeedWeekRange(feedWeekOffset);
+    const s = new Date(range.start).getTime();
+    const e2 = new Date(range.end).getTime() + 86400000;
+    display = display.filter(e => (e.timestamp||0) >= s && (e.timestamp||0) <= e2);
   } else if (feedPeriodFilter === "month") {
     const now = new Date(); const m = now.getMonth(); const y = now.getFullYear();
     display = display.filter(e => {
@@ -3320,6 +3338,22 @@ function renderFeed() {
     `<button class="feed-period-btn ${feedPeriodFilter===p.key?'active':''}" onclick="setFeedPeriodFilter('${p.key}')">${p.label}</button>`
   ).join("");
 
+  // 주별 네비게이션 UI
+  let feedWeekNavHtml = "";
+  if (feedPeriodFilter === "week") {
+    const range = getFeedWeekRange(feedWeekOffset);
+    const [sy, sm, sd] = range.start.split("-").map(Number);
+    const [ey, em, ed] = range.end.split("-").map(Number);
+    const weekLabel = `${sy}년 ${sm}월 ${sd}일 ~ ${em}월 ${ed}일`;
+    const canNext = feedWeekOffset < 0;
+    feedWeekNavHtml = `
+      <div class="prayer-week-nav">
+        <button class="prayer-week-btn" onclick="moveFeedWeek(-1)">‹ 이전</button>
+        <span class="prayer-week-label">${weekLabel}</span>
+        <button class="prayer-week-btn ${canNext?"":"disabled"}" onclick="moveFeedWeek(1)" ${canNext?"":"disabled"}>다음 ›</button>
+      </div>`;
+  }
+
   const rangeInputs = feedPeriodFilter === "range" ? `
     <div class="feed-range-row">
       <input type="date" id="feedRangeStart" class="feed-date-input" value="${feedRangeStart}">
@@ -3331,6 +3365,7 @@ function renderFeed() {
   const periodFilter = `
     <div class="feed-section-label" style="margin-top:12px">📅 기간</div>
     <div class="feed-period-row">${periodBtns}</div>
+    ${feedWeekNavHtml}
     ${rangeInputs}`;
 
   // ── 카드 목록 (날짜 구분선 포함) ──
