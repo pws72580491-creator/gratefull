@@ -30,8 +30,6 @@ self.addEventListener('message', e => {
     self.skipWaiting();
   }
 });
-
-self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE_NAME)
       // cache: 'reload' → HTTP 캐시 무시하고 서버에서 직접 받아옴
