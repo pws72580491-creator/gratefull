@@ -3288,7 +3288,7 @@ function renderFeed() {
       <button class="feed-my-btn" data-nick="${escHtml(myNick)}" onclick="setFeedAuthorFilter(this.dataset.nick)">${escHtml(myNick || "나")}</button>
       <div style="display:flex;gap:8px;align-items:center">
         <button class="feed-icon-btn" onclick="showReminderModal()" title="리마인더 설정">⏰</button>
-        <button class="feed-icon-btn" id="notifBtn" onclick="toggleNotification()" title="알림">🔔</button>
+        <button class="feed-icon-btn notif-btn-wrap" id="notifBtn" onclick="toggleNotification()" title="알림"><span class="notif-bell-icon">🔔</span><span class="notif-badge"></span><span class="notif-slash"></span></button>
         <button class="feed-leave-btn" onclick="showLeaveGroupModal()">📋 나가기</button>
       </div>
     </div>`;

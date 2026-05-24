@@ -476,6 +476,52 @@
     display:flex; align-items:center; justify-content:center;
   }
   .feed-icon-btn:active { transform:scale(0.92); }
+  /* ── 알림 버튼 상태 표시 ── */
+  .notif-btn-wrap { position:relative; overflow:visible !important; }
+
+  /* 종 이모지 */
+  .notif-bell-icon { font-size:16px; line-height:1; display:block; transition:filter 0.2s, transform 0.2s; }
+
+  /* 꺼짐(기본): 종을 흑백+불투명 처리 */
+  #notifBtn:not(.on) .notif-bell-icon { filter:grayscale(1) opacity(0.45); }
+
+  /* 켜짐: 배경 채우기 + 종 살짝 흔들림 */
+  #notifBtn.on { background:rgba(52,199,89,0.12); border-color:rgba(52,199,89,0.55); }
+  #notifBtn.on .notif-bell-icon { animation:notif-ring 0.5s ease 0s 1; }
+  @keyframes notif-ring {
+    0%   { transform:rotate(0deg); }
+    15%  { transform:rotate(-18deg); }
+    40%  { transform:rotate(14deg); }
+    60%  { transform:rotate(-9deg); }
+    80%  { transform:rotate(5deg); }
+    100% { transform:rotate(0deg); }
+  }
+
+  /* 켜짐 뱃지 — 초록 점 */
+  .notif-badge {
+    display:none;
+    position:absolute; top:3px; right:3px;
+    width:8px; height:8px; border-radius:50%;
+    background:#34C759; border:1.5px solid #fff;
+  }
+  #notifBtn.on .notif-badge { display:block; }
+
+  /* 꺼짐 사선 — 빨간 줄 */
+  .notif-slash {
+    display:none;
+    position:absolute; inset:0; border-radius:50%;
+    pointer-events:none;
+  }
+  .notif-slash::after {
+    content:'';
+    position:absolute;
+    top:50%; left:50%;
+    width:130%; height:2px;
+    background:#FF3B30;
+    border-radius:2px;
+    transform:translate(-50%,-50%) rotate(-45deg);
+  }
+  #notifBtn:not(.on) .notif-slash { display:block; }
   .feed-leave-btn {
     font-family:'DM Sans',sans-serif; font-size:12px; font-weight:600;
     color:var(--ink-faint); background:var(--surface);
