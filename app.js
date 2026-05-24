@@ -66,7 +66,7 @@ let prayerEditId = null;       // 수정 중인 기도 ID
 let prayerRef = null;          // Firebase ref: grateful-users/{nick}/prayers
 let prayerListener = null;     // 실시간 리스너
 // 기도 기간 필터
-let prayerPeriodFilter = "all"; // "all" | "week" | "month" | "range"
+let prayerPeriodFilter = "week"; // "all" | "week" | "month" | "range"
 let prayerRangeStart   = "";
 let prayerRangeEnd     = "";
 let prayerWeekOffset   = 0;     // 0=이번 주, -1=지난 주, ...
@@ -78,7 +78,7 @@ let sharedToday      = false;
 let _feedNewCount    = 0;
 // 피드 필터
 let feedAuthorFilter = "all";   // "all" | 닉네임
-let feedPeriodFilter = "all";   // "all" | "week" | "month" | "range"
+let feedPeriodFilter = "week";   // "all" | "week" | "month" | "range"
 let feedRangeStart   = "";
 let feedRangeEnd     = "";
 
