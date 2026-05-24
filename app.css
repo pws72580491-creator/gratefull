@@ -290,7 +290,7 @@
     position: fixed;
     left: 0; right: 0; bottom: 0;
     z-index: 999;
-    padding: 14px 16px calc(env(safe-area-inset-bottom) + 14px);
+    padding: 14px 16px max(72px, calc(env(safe-area-inset-bottom) + 14px));
     background: linear-gradient(
       to top,
       var(--bg-base) 60%,
@@ -1071,7 +1071,7 @@
      MAIN
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
   .main {
-    padding: 20px 16px max(180px, calc(env(safe-area-inset-bottom) + 160px));
+    padding: 20px 16px max(220px, calc(env(safe-area-inset-bottom) + 200px));
     max-width: 520px; margin: 0 auto;
     position: relative; z-index: 1;
   }
