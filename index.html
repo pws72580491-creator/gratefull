@@ -282,6 +282,30 @@
 <div class="swipe-hint left"  id="swipeLeft">‹</div>
 <div class="swipe-hint right" id="swipeRight">›</div>
 
+
+<!-- ── 업데이트 배너 ── -->
+<div class="update-banner" id="updateBanner" style="display:none">
+  <span class="update-banner-text">🌿 새 버전이 있어요!</span>
+  <button class="update-banner-btn" onclick="showUpdateModal()">업데이트 보기</button>
+  <button class="update-banner-close" onclick="hideUpdateBanner()">✕</button>
+</div>
+
+<!-- ── 업데이트 모달 ── -->
+<div class="modal-overlay" id="updateModal" style="display:none">
+  <div class="modal-box update-modal-box">
+    <div class="update-modal-icon">🌿</div>
+    <div class="update-modal-title">새 버전이 있어요</div>
+    <div class="update-version-row">
+      <span class="update-ver-chip current" id="updateCurrentVer">현재 v—</span>
+      <span class="update-arrow">→</span>
+      <span class="update-ver-chip new" id="updateNewVer">새 v—</span>
+    </div>
+    <div class="update-changelog" id="updateChangelog"></div>
+    <button class="modal-btn update-now-btn" onclick="doUpdate()">지금 업데이트</button>
+    <button class="update-later-btn" onclick="hideUpdateModal()">나중에</button>
+  </div>
+</div>
+
 <script src="./app.js"></script>
 </body>
 </html>

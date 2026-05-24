@@ -3,6 +3,13 @@
 // ══════════════════════════════════════════
 const APP_VERSION = "3.23";
 const APP_BUILD   = "2026.05.24";
+const APP_CHANGELOG = [
+  "피드·기도 탭 기간 필터 주별 디폴트 적용",
+  "피드 주별 네비게이터 추가 (이전/다음 주 이동)",
+  "알림 버튼 켜짐/꺼짐 시각 표시 (초록 점, 빨간 사선)",
+  "알림 시간 표시 너비 수정 (오후 9:00 짤림 해결)",
+  "오프라인 캐시 install 이벤트 수정",
+];
 
 // ══════════════════════════════════════════
 // 서비스 워커 (Web Push + 백그라운드 알림)
@@ -659,6 +666,54 @@ document.getElementById("reminderModal").addEventListener("click", function(e) {
 // ══════════════════════════════════════════
 let toastTimer = null;
 let renderTimer = null; // render() 경쟁 조건 방지용 타이머
+
+// ══════════════════════════════════════════
+// 업데이트 배너 & 모달
+// ══════════════════════════════════════════
+
+function showUpdateBanner() {
+  const banner = document.getElementById("updateBanner");
+  if (banner) banner.style.display = "flex";
+}
+
+function hideUpdateBanner() {
+  const banner = document.getElementById("updateBanner");
+  if (banner) banner.style.display = "none";
+}
+
+function showUpdateModal() {
+  hideUpdateBanner();
+  // 버전 정보 채우기
+  const currentEl = document.getElementById("updateCurrentVer");
+  const newEl     = document.getElementById("updateNewVer");
+  if (currentEl) currentEl.textContent = `현재 v${APP_VERSION}`;
+  if (newEl)     newEl.textContent     = `새 버전`;
+
+  // 변경 내용 렌더
+  const log = document.getElementById("updateChangelog");
+  if (log) {
+    log.innerHTML = APP_CHANGELOG.map(item =>
+      `<div class="update-changelog-item"><span class="update-changelog-dot">✦</span><span>${item}</span></div>`
+    ).join("");
+  }
+  document.getElementById("updateModal").style.display = "flex";
+}
+
+function hideUpdateModal() {
+  document.getElementById("updateModal").style.display = "none";
+}
+
+function doUpdate() {
+  hideUpdateModal();
+  showToast("🌿 업데이트 중이에요...", 3000);
+  if (window._triggerSwUpdate) {
+    window._triggerSwUpdate();
+  } else {
+    // SW 없는 환경(개발)에서는 그냥 리로드
+    setTimeout(() => window.location.reload(), 800);
+  }
+}
+
 function showToast(msg, duration) {
   const t = document.getElementById("toast");
   t.textContent = msg;
@@ -1747,34 +1802,44 @@ async function initServiceWorker() {
     });
     console.log('[SW] sw.js 등록됨:', swReg.scope);
 
-    // ── 새 SW 감지 → 자동 활성화 ──────────────────────
-    // waiting 상태의 새 SW가 있으면 즉시 skipWaiting 요청
-    function _activateWaitingSW(reg) {
-      if (reg.waiting) {
-        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+    // ── 새 SW 감지 → 사용자에게 업데이트 알림 ──────────
+    let _pendingUpdateSW = null; // 설치 완료된 대기 SW
+
+    function _checkWaiting(reg) {
+      if (reg.waiting && navigator.serviceWorker.controller) {
+        _pendingUpdateSW = reg.waiting;
+        showUpdateBanner();
       }
     }
-    // 이미 waiting 중인 SW가 있으면 지금 바로 처리
-    _activateWaitingSW(swReg);
-    // 앞으로 새 SW가 설치 완료되면 바로 활성화
+    // 이미 waiting 중인 SW가 있으면 바로 배너 표시
+    _checkWaiting(swReg);
+
+    // 새 SW 설치 감지
     swReg.addEventListener('updatefound', () => {
       const newSW = swReg.installing;
       if (!newSW) return;
       newSW.addEventListener('statechange', () => {
         if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
-          // 새 버전 설치 완료 → skipWaiting 요청 후 페이지 리로드
-          newSW.postMessage({ type: 'SKIP_WAITING' });
+          _pendingUpdateSW = newSW;
+          showUpdateBanner();
         }
       });
     });
-    // controllerchange = 새 SW가 페이지를 제어하기 시작
+
+    // controllerchange = skipWaiting 완료 → 리로드
     let _reloading = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (_reloading) return;
       _reloading = true;
-      // 자동 리로드 (사용자에게 투명하게 처리)
       window.location.reload();
     });
+
+    // doUpdate()에서 대기 SW에 skipWaiting 신호 전송
+    window._triggerSwUpdate = () => {
+      if (_pendingUpdateSW) {
+        _pendingUpdateSW.postMessage({ type: 'SKIP_WAITING' });
+      }
+    };
     // ──────────────────────────────────────────────────
 
     // 주기적 업데이트 체크 (앱이 오래 열려 있을 때 대비)
