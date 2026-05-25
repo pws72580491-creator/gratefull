@@ -1001,9 +1001,6 @@ function renderWrite() {
   const dots = Array.from({length: totalSlots}, (_,i) =>
     `<div class="dot ${i<filled?"filled":""}"></div>`).join("");
 
-  // 공유 버튼 — 항상 고정 표시, 클릭 시 상태 판단
-  const shareBtnHtml = `<button class="share-btn" id="shareMainBtn" onclick="onShareBtnClick()">🌿 그룹에 공유하기</button>`;
-
   return `
     <div style="text-align:center;font-size:12.5px;color:var(--brown-faint);margin:2px 0 14px;font-style:italic;letter-spacing:0.3px;animation:fadeSlideIn 0.4s ease">${greeting}</div>
     ${renderThrowback()}
@@ -1023,17 +1020,9 @@ function renderWrite() {
     </div>
     <div class="bottom-action-bar">
       <div class="bottom-action-wrap">
-
-        <button
-          class="save-btn ${saved?"saved":""}"
-          id="saveBtn"
-          onclick="saveToday()"
-        >
-          ${saved ? "✓  저장됨" : "저장하기"}
+        <button class="action-main-btn" id="actionMainBtn" onclick="onActionBtnClick()">
+          저장하기
         </button>
-
-        ${shareBtnHtml}
-
       </div>
     </div>
   `;
@@ -1389,19 +1378,13 @@ function attachListeners() {
       const filled = state.gratitude.filter(Boolean).length;
       document.querySelectorAll(".dot").forEach((d,idx) => d.classList.toggle("filled", idx<filled));
       // 저장 버튼 초기화
-      const saveBtn = document.getElementById("saveBtn");
-      if (saveBtn && saveBtn.classList.contains("saved")) {
-        saveBtn.textContent = "저장하기"; saveBtn.classList.remove("saved");
-      }
+      updateActionBtn();
     });
   });
   const noteEl = document.getElementById("noteText");
   if (noteEl) noteEl.addEventListener("input", () => {
     state.note = noteEl.value.trim(); saved = false;
-    const saveBtn = document.getElementById("saveBtn");
-    if (saveBtn && saveBtn.classList.contains("saved")) {
-      saveBtn.textContent = "저장하기"; saveBtn.classList.remove("saved");
-    }
+    updateActionBtn();
   });
 }
 
@@ -1433,9 +1416,7 @@ function selectMood(label) {
   document.querySelectorAll(".mood-btn").forEach((btn,i) => {
     btn.classList.toggle("selected", MOODS[i].label === state.mood);
   });
-  // 저장버튼 텍스트 초기화 (저장됨 → 저장하기)
-  const btn = document.getElementById("saveBtn");
-  if (btn) { btn.textContent = "저장하기"; btn.classList.remove("saved"); }
+  updateActionBtn();
 }
 
 function saveToday() {
@@ -1462,8 +1443,7 @@ function saveToday() {
 
   // ☁ 클라우드 동기화
   syncDayToCloud(todayKey(), h[todayKey()]);
-  const btn = document.getElementById("saveBtn");
-  if (btn) { btn.textContent = "✓  저장됨"; btn.classList.add("saved"); }
+  // 버튼 상태는 updateActionBtn()에서 통합 처리
 
   spawnHearts();
   updateShareBtn(); // 저장 후 공유 버튼 즉시 갱신
@@ -1482,7 +1462,7 @@ function saveToday() {
 
 // ── 하트 파티클 ──
 function spawnHearts() {
-  const btn = document.getElementById("saveBtn");
+  const btn = document.getElementById("actionMainBtn");
   if (!btn) return;
   const rect = btn.getBoundingClientRect();
   const emojis = ["🌸","✦","🌿","♡","✿"];
@@ -3011,27 +2991,38 @@ function renderPrayer() {
 // 공유 버튼 상태 갱신 (DOM 직접 업데이트)
 // render()와 독립적으로 항상 정확한 상태 유지
 // ══════════════════════════════════════════
-function updateShareBtn() {
-  // 버튼 텍스트/스타일만 업데이트 — 버튼 자체는 항상 DOM에 존재
-  const btn = document.getElementById("shareMainBtn");
+function updateShareBtn() { updateActionBtn(); } // 하위 호환
+function updateActionBtn() {
+  const btn = document.getElementById("actionMainBtn");
   if (!btn) return;
-
   const alreadyShared = sharedToday || getSharedKeys().includes(todayKey());
   if (alreadyShared) {
     btn.textContent = "✦ 오늘 그룹에 공유됨";
-    btn.className = "share-btn shared";
-  } else {
+    btn.className = "action-main-btn state-shared";
+    btn.disabled = true;
+  } else if (saved) {
     btn.textContent = "🌿 그룹에 공유하기";
-    btn.className = "share-btn";
+    btn.className = "action-main-btn state-share";
+    btn.disabled = false;
+  } else {
+    btn.textContent = "저장하기";
+    btn.className = "action-main-btn state-save";
+    btn.disabled = false;
   }
 }
 
-// 공유 버튼 클릭 시 상태 판단 (버튼은 항상 보임)
-function onShareBtnClick() {
+// 통합 액션 버튼 클릭
+function onActionBtnClick() {
   const alreadyShared = sharedToday || getSharedKeys().includes(todayKey());
   if (alreadyShared) { showToast("오늘은 이미 공유했어요 ✦"); return; }
 
-  // 내용 동기화
+  if (!saved) {
+    // 저장하기 모드
+    saveToday();
+    return;
+  }
+
+  // 공유하기 모드
   state.gratitude.forEach((_, i) => {
     const ta = document.getElementById(`gtext${i}`);
     if (ta) state.gratitude[i] = ta.value;
@@ -3044,11 +3035,11 @@ function onShareBtnClick() {
 
   if (!firebaseReady) { showToast("Firebase 연결 중이에요. 잠시 후 다시 시도해주세요 🌿"); return; }
 
-  // 미저장이면 자동 저장
-  if (!saved) saveToday();
-
   openShareModal();
 }
+
+// 하위 호환
+function onShareBtnClick() { onActionBtnClick(); }
 
 // ══════════════════════════════════════════
 // 그룹 공유 — localStorage 키 관리
