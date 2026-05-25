@@ -1,15 +1,8 @@
 // ══════════════════════════════════════════
 // 앱 버전
 // ══════════════════════════════════════════
-const APP_VERSION = "3.25";
-const APP_BUILD   = "2026.05.25";
-const APP_CHANGELOG = [
-  "피드·기도 탭 기간 필터 주별 디폴트 적용",
-  "피드 주별 네비게이터 추가 (이전/다음 주 이동)",
-  "알림 버튼 켜짐/꺼짐 시각 표시 (초록 점, 빨간 사선)",
-  "알림 시간 표시 너비 수정 (오후 9:00 짤림 해결)",
-  "오프라인 캐시 install 이벤트 수정",
-];
+const APP_VERSION = "3.23";
+const APP_BUILD   = "2026.05.24";
 
 // ══════════════════════════════════════════
 // 서비스 워커 (Web Push + 백그라운드 알림)
@@ -73,7 +66,7 @@ let prayerEditId = null;       // 수정 중인 기도 ID
 let prayerRef = null;          // Firebase ref: grateful-users/{nick}/prayers
 let prayerListener = null;     // 실시간 리스너
 // 기도 기간 필터
-let prayerPeriodFilter = "week"; // "all" | "week" | "month" | "range"
+let prayerPeriodFilter = "all"; // "all" | "week" | "month" | "range"
 let prayerRangeStart   = "";
 let prayerRangeEnd     = "";
 let prayerWeekOffset   = 0;     // 0=이번 주, -1=지난 주, ...
@@ -85,10 +78,9 @@ let sharedToday      = false;
 let _feedNewCount    = 0;
 // 피드 필터
 let feedAuthorFilter = "all";   // "all" | 닉네임
-let feedPeriodFilter = "week";   // "all" | "week" | "month" | "range"
+let feedPeriodFilter = "all";   // "all" | "week" | "month" | "range"
 let feedRangeStart   = "";
 let feedRangeEnd     = "";
-let feedWeekOffset   = 0;     // 0=이번 주, -1=지난 주, ...
 
 // 오늘 사용할 힌트 세트
 let todayHints = HINT_POOL[new Date().getDay() % HINT_POOL.length];
@@ -666,54 +658,6 @@ document.getElementById("reminderModal").addEventListener("click", function(e) {
 // ══════════════════════════════════════════
 let toastTimer = null;
 let renderTimer = null; // render() 경쟁 조건 방지용 타이머
-
-// ══════════════════════════════════════════
-// 업데이트 배너 & 모달
-// ══════════════════════════════════════════
-
-function showUpdateBanner() {
-  const banner = document.getElementById("updateBanner");
-  if (banner) banner.style.display = "flex";
-}
-
-function hideUpdateBanner() {
-  const banner = document.getElementById("updateBanner");
-  if (banner) banner.style.display = "none";
-}
-
-function showUpdateModal() {
-  hideUpdateBanner();
-  // 버전 정보 채우기
-  const currentEl = document.getElementById("updateCurrentVer");
-  const newEl     = document.getElementById("updateNewVer");
-  if (currentEl) currentEl.textContent = `현재 v${APP_VERSION}`;
-  if (newEl)     newEl.textContent     = `새 버전`;
-
-  // 변경 내용 렌더
-  const log = document.getElementById("updateChangelog");
-  if (log) {
-    log.innerHTML = APP_CHANGELOG.map(item =>
-      `<div class="update-changelog-item"><span class="update-changelog-dot">✦</span><span>${item}</span></div>`
-    ).join("");
-  }
-  document.getElementById("updateModal").style.display = "flex";
-}
-
-function hideUpdateModal() {
-  document.getElementById("updateModal").style.display = "none";
-}
-
-function doUpdate() {
-  hideUpdateModal();
-  showToast("🌿 업데이트 중이에요...", 3000);
-  if (window._triggerSwUpdate) {
-    window._triggerSwUpdate();
-  } else {
-    // SW 없는 환경(개발)에서는 그냥 리로드
-    setTimeout(() => window.location.reload(), 800);
-  }
-}
-
 function showToast(msg, duration) {
   const t = document.getElementById("toast");
   t.textContent = msg;
@@ -868,18 +812,6 @@ function render() {
       attachListeners();
       updateSwipeHints();
       if (currentView === 'write') updateShareBtn();
-      // 하단 액션 바 show/hide + save 버튼 상태 동기화
-      const bar = document.getElementById('bottomActionBar');
-      if (bar) {
-        bar.style.display = currentView === 'write' ? '' : 'none';
-        if (currentView === 'write') {
-          const saveBtn = document.getElementById('saveBtn');
-          if (saveBtn) {
-            if (saved) { saveBtn.textContent = '✓  저장됨'; saveBtn.classList.add('saved'); }
-            else       { saveBtn.textContent = '저장하기';   saveBtn.classList.remove('saved'); }
-          }
-        }
-      }
       renderNotifBtn();
   updateProfileBtn();
       // exit class 제거 후 enter → requestAnimationFrame으로 repaint 보장
@@ -1014,7 +946,7 @@ function renderWrite() {
     `<div class="dot ${i<filled?"filled":""}"></div>`).join("");
 
   // 공유 버튼 — 항상 고정 표시, 클릭 시 상태 판단
-  // (bottom-action-bar는 index.html에 #mainContent 밖으로 이동됨)
+  const shareBtnHtml = `<button class="share-btn" id="shareMainBtn" onclick="onShareBtnClick()">🌿 그룹에 공유하기</button>`;
 
   return `
     <div style="text-align:center;font-size:12.5px;color:var(--brown-faint);margin:2px 0 14px;font-style:italic;letter-spacing:0.3px;animation:fadeSlideIn 0.4s ease">${greeting}</div>
@@ -1032,6 +964,21 @@ function renderWrite() {
     <div class="card">
       <div class="card-label">한 줄 메모 <span class="card-label-opt">(선택)</span></div>
       <textarea class="note-textarea" id="noteText" rows="2" placeholder="오늘 하루를 한 줄로...">${escHtml(state.note)}</textarea>
+    </div>
+    <div class="bottom-action-bar">
+      <div class="bottom-action-wrap">
+
+        <button
+          class="save-btn ${saved?"saved":""}"
+          id="saveBtn"
+          onclick="saveToday()"
+        >
+          ${saved ? "✓  저장됨" : "저장하기"}
+        </button>
+
+        ${shareBtnHtml}
+
+      </div>
     </div>
   `;
 }
@@ -1799,44 +1746,34 @@ async function initServiceWorker() {
     });
     console.log('[SW] sw.js 등록됨:', swReg.scope);
 
-    // ── 새 SW 감지 → 사용자에게 업데이트 알림 ──────────
-    let _pendingUpdateSW = null; // 설치 완료된 대기 SW
-
-    function _checkWaiting(reg) {
-      if (reg.waiting && navigator.serviceWorker.controller) {
-        _pendingUpdateSW = reg.waiting;
-        showUpdateBanner();
+    // ── 새 SW 감지 → 자동 활성화 ──────────────────────
+    // waiting 상태의 새 SW가 있으면 즉시 skipWaiting 요청
+    function _activateWaitingSW(reg) {
+      if (reg.waiting) {
+        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
       }
     }
-    // 이미 waiting 중인 SW가 있으면 바로 배너 표시
-    _checkWaiting(swReg);
-
-    // 새 SW 설치 감지
+    // 이미 waiting 중인 SW가 있으면 지금 바로 처리
+    _activateWaitingSW(swReg);
+    // 앞으로 새 SW가 설치 완료되면 바로 활성화
     swReg.addEventListener('updatefound', () => {
       const newSW = swReg.installing;
       if (!newSW) return;
       newSW.addEventListener('statechange', () => {
         if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
-          _pendingUpdateSW = newSW;
-          showUpdateBanner();
+          // 새 버전 설치 완료 → skipWaiting 요청 후 페이지 리로드
+          newSW.postMessage({ type: 'SKIP_WAITING' });
         }
       });
     });
-
-    // controllerchange = skipWaiting 완료 → 리로드
+    // controllerchange = 새 SW가 페이지를 제어하기 시작
     let _reloading = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (_reloading) return;
       _reloading = true;
+      // 자동 리로드 (사용자에게 투명하게 처리)
       window.location.reload();
     });
-
-    // doUpdate()에서 대기 SW에 skipWaiting 신호 전송
-    window._triggerSwUpdate = () => {
-      if (_pendingUpdateSW) {
-        _pendingUpdateSW.postMessage({ type: 'SKIP_WAITING' });
-      }
-    };
     // ──────────────────────────────────────────────────
 
     // 주기적 업데이트 체크 (앱이 오래 열려 있을 때 대비)
@@ -3233,24 +3170,9 @@ function setFeedAuthorFilter(nick) {
 }
 function setFeedPeriodFilter(period) {
   feedPeriodFilter = period;
-  if (period === "week") feedWeekOffset = 0; // 주별 탭 진입 시 이번 주로 리셋
-  render();
-}
-
-function getFeedWeekRange(offset) {
-  const today = new Date();
-  const dow = today.getDay(); // 0=일
-  const sun = new Date(today);
-  sun.setDate(today.getDate() - dow + offset * 7);
-  sun.setHours(0, 0, 0, 0);
-  const sat = new Date(sun);
-  sat.setDate(sun.getDate() + 6);
-  return { start: localDateStr(sun), end: localDateStr(sat) };
-}
-
-function moveFeedWeek(delta) {
-  if (delta > 0 && feedWeekOffset >= 0) return; // 미래 주 이동 차단
-  feedWeekOffset += delta;
+  if (period === "range") {
+    // 기간 선택 UI는 이미 렌더에서 처리
+  }
   render();
 }
 function applyFeedRange() {
@@ -3334,10 +3256,8 @@ function renderFeed() {
 
   // 기간 필터
   if (feedPeriodFilter === "week") {
-    const range = getFeedWeekRange(feedWeekOffset);
-    const s = new Date(range.start).getTime();
-    const e2 = new Date(range.end).getTime() + 86400000;
-    display = display.filter(e => (e.timestamp||0) >= s && (e.timestamp||0) <= e2);
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    display = display.filter(e => (e.timestamp || 0) >= cutoff);
   } else if (feedPeriodFilter === "month") {
     const now = new Date(); const m = now.getMonth(); const y = now.getFullYear();
     display = display.filter(e => {
@@ -3368,7 +3288,7 @@ function renderFeed() {
       <button class="feed-my-btn" data-nick="${escHtml(myNick)}" onclick="setFeedAuthorFilter(this.dataset.nick)">${escHtml(myNick || "나")}</button>
       <div style="display:flex;gap:8px;align-items:center">
         <button class="feed-icon-btn" onclick="showReminderModal()" title="리마인더 설정">⏰</button>
-        <button class="feed-icon-btn notif-btn-wrap" id="notifBtn" onclick="toggleNotification()" title="알림"><span class="notif-bell-icon">🔔</span><span class="notif-badge"></span><span class="notif-slash"></span></button>
+        <button class="feed-icon-btn" id="notifBtn" onclick="toggleNotification()" title="알림">🔔</button>
         <button class="feed-leave-btn" onclick="showLeaveGroupModal()">📋 나가기</button>
       </div>
     </div>`;
@@ -3400,22 +3320,6 @@ function renderFeed() {
     `<button class="feed-period-btn ${feedPeriodFilter===p.key?'active':''}" onclick="setFeedPeriodFilter('${p.key}')">${p.label}</button>`
   ).join("");
 
-  // 주별 네비게이션 UI
-  let feedWeekNavHtml = "";
-  if (feedPeriodFilter === "week") {
-    const range = getFeedWeekRange(feedWeekOffset);
-    const [sy, sm, sd] = range.start.split("-").map(Number);
-    const [ey, em, ed] = range.end.split("-").map(Number);
-    const weekLabel = `${sy}년 ${sm}월 ${sd}일 ~ ${em}월 ${ed}일`;
-    const canNext = feedWeekOffset < 0;
-    feedWeekNavHtml = `
-      <div class="prayer-week-nav">
-        <button class="prayer-week-btn" onclick="moveFeedWeek(-1)">‹ 이전</button>
-        <span class="prayer-week-label">${weekLabel}</span>
-        <button class="prayer-week-btn ${canNext?"":"disabled"}" onclick="moveFeedWeek(1)" ${canNext?"":"disabled"}>다음 ›</button>
-      </div>`;
-  }
-
   const rangeInputs = feedPeriodFilter === "range" ? `
     <div class="feed-range-row">
       <input type="date" id="feedRangeStart" class="feed-date-input" value="${feedRangeStart}">
@@ -3427,7 +3331,6 @@ function renderFeed() {
   const periodFilter = `
     <div class="feed-section-label" style="margin-top:12px">📅 기간</div>
     <div class="feed-period-row">${periodBtns}</div>
-    ${feedWeekNavHtml}
     ${rangeInputs}`;
 
   // ── 카드 목록 (날짜 구분선 포함) ──
