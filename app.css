@@ -287,25 +287,12 @@
 
   /* 하단 고정 액션 바 */
   .bottom-action-bar {
-    position: fixed;
-    left: 0; right: 0; bottom: 0;
-    z-index: 999;
-    padding: 14px 16px calc(env(safe-area-inset-bottom) + 14px);
-    background: linear-gradient(
-      to top,
-      var(--bg-base) 60%,
-      color-mix(in srgb, var(--bg-base) 92%, transparent) 85%,
-      transparent 100%
-    );
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    padding: 8px 0 max(24px, env(safe-area-inset-bottom));
   }
   .bottom-action-wrap {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    max-width: 520px;
-    margin: 0 auto;
   }
   /* 통합 액션 버튼 (저장 → 공유 → 완료) */
   .action-main-btn {
@@ -1092,7 +1079,7 @@
      MAIN
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
   .main {
-    padding: 20px 16px max(180px, calc(env(safe-area-inset-bottom) + 160px));
+    padding: 20px 16px max(40px, calc(env(safe-area-inset-bottom) + 24px));
     max-width: 520px; margin: 0 auto;
     position: relative; z-index: 1;
   }
