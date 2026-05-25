@@ -868,6 +868,18 @@ function render() {
       attachListeners();
       updateSwipeHints();
       if (currentView === 'write') updateShareBtn();
+      // 하단 액션 바 show/hide + save 버튼 상태 동기화
+      const bar = document.getElementById('bottomActionBar');
+      if (bar) {
+        bar.style.display = currentView === 'write' ? '' : 'none';
+        if (currentView === 'write') {
+          const saveBtn = document.getElementById('saveBtn');
+          if (saveBtn) {
+            if (saved) { saveBtn.textContent = '✓  저장됨'; saveBtn.classList.add('saved'); }
+            else       { saveBtn.textContent = '저장하기';   saveBtn.classList.remove('saved'); }
+          }
+        }
+      }
       renderNotifBtn();
   updateProfileBtn();
       // exit class 제거 후 enter → requestAnimationFrame으로 repaint 보장
@@ -1002,7 +1014,7 @@ function renderWrite() {
     `<div class="dot ${i<filled?"filled":""}"></div>`).join("");
 
   // 공유 버튼 — 항상 고정 표시, 클릭 시 상태 판단
-  const shareBtnHtml = `<button class="share-btn" id="shareMainBtn" onclick="onShareBtnClick()">🌿 그룹에 공유하기</button>`;
+  // (bottom-action-bar는 index.html에 #mainContent 밖으로 이동됨)
 
   return `
     <div style="text-align:center;font-size:12.5px;color:var(--brown-faint);margin:2px 0 14px;font-style:italic;letter-spacing:0.3px;animation:fadeSlideIn 0.4s ease">${greeting}</div>
@@ -1020,21 +1032,6 @@ function renderWrite() {
     <div class="card">
       <div class="card-label">한 줄 메모 <span class="card-label-opt">(선택)</span></div>
       <textarea class="note-textarea" id="noteText" rows="2" placeholder="오늘 하루를 한 줄로...">${escHtml(state.note)}</textarea>
-    </div>
-    <div class="bottom-action-bar">
-      <div class="bottom-action-wrap">
-
-        <button
-          class="save-btn ${saved?"saved":""}"
-          id="saveBtn"
-          onclick="saveToday()"
-        >
-          ${saved ? "✓  저장됨" : "저장하기"}
-        </button>
-
-        ${shareBtnHtml}
-
-      </div>
     </div>
   `;
 }

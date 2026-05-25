@@ -274,6 +274,14 @@
 
 <div class="main" id="mainContent"></div>
 
+<!-- 하단 고정 액션 바 — #mainContent 밖에 위치해야 will-change:transform 에 의한 fixed 깨짐 방지 -->
+<div class="bottom-action-bar" id="bottomActionBar" style="display:none">
+  <div class="bottom-action-wrap">
+    <button class="save-btn" id="saveBtn" onclick="saveToday()">저장하기</button>
+    <button class="share-btn" id="shareMainBtn" onclick="onShareBtnClick()">🌿 그룹에 공유하기</button>
+  </div>
+</div>
+
 <!-- 토스트 -->
 <input type="file" id="importFileInput" accept=".json" style="display:none">
 <div class="toast" id="toast"></div>
