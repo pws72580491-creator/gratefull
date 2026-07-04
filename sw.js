@@ -3,7 +3,7 @@
 // 모든 캐시가 교체됩니다. 코드 배포 후 반드시
 // APP_VER를 올려주세요.
 // ─────────────────────────────────────────
-const APP_VER    = '3.23';
+const APP_VER    = '3.24';
 const CACHE_NAME = `grateful-v${APP_VER}`;
 
 // 오프라인용 정적 자산 (아이콘·폰트 제외한 코어만)
@@ -30,6 +30,8 @@ self.addEventListener('message', e => {
     self.skipWaiting();
   }
 });
+
+self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE_NAME)
       // cache: 'reload' → HTTP 캐시 무시하고 서버에서 직접 받아옴

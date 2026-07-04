@@ -101,6 +101,33 @@
   </div>
 </div>
 
+<!-- PIN 잠금 설정 모달 -->
+<div class="modal-overlay" id="pinSettingsModal" style="display:none" onclick="if(event.target===this)closePinSettingsModal()">
+  <div class="modal-box">
+    <div style="font-size:36px;text-align:center;margin-bottom:12px">🔒</div>
+    <div class="modal-title" id="pinSettingsTitle" style="text-align:center">잠금 설정</div>
+    <div class="modal-sub" id="pinSettingsSub" style="text-align:center">앱을 열 때 사용할 4자리 숫자를 정해주세요.</div>
+    <input class="modal-input" id="pinSettingsInput" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="4자리 숫자"
+      oninput="this.value=this.value.replace(/[^0-9]/g,'')" />
+    <button class="modal-btn" id="pinSettingsBtn" onclick="enablePinLock()">설정하기</button>
+    <button class="modal-btn-cancel" style="margin-top:8px;width:100%" onclick="closePinSettingsModal()">취소</button>
+  </div>
+</div>
+
+<!-- 잠금 화면 (PIN 설정 시 앱 진입 전 표시) -->
+<div id="pinLockScreen" style="display:none">
+  <div class="pin-lock-box">
+    <div class="pin-lock-icon">🔒</div>
+    <div class="pin-lock-title">Grateful 잠김</div>
+    <div class="pin-lock-sub">PIN을 입력해주세요</div>
+    <input type="password" id="pinLockInput" class="pin-lock-input" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off"
+      oninput="this.value=this.value.replace(/[^0-9]/g,''); if(this.value.length===4) submitPinUnlock();"
+      onkeydown="if(event.key==='Enter') submitPinUnlock();" />
+    <div id="pinLockError" class="pin-lock-error" style="display:none">PIN이 일치하지 않아요</div>
+    <button class="modal-btn" onclick="submitPinUnlock()">확인</button>
+  </div>
+</div>
+
 <!-- 그룹 공유 모달 -->
 <div class="modal-overlay" id="shareOptionModal" style="display:none" onclick="if(event.target===this)closeShareModal()">
   <div class="modal-box">

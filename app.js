@@ -1,8 +1,8 @@
 // ══════════════════════════════════════════
 // 앱 버전
 // ══════════════════════════════════════════
-const APP_VERSION = "3.23";
-const APP_BUILD   = "2026.05.24";
+const APP_VERSION = "3.24";
+const APP_BUILD   = "2026.07.04";
 const APP_CHANGELOG = [
   "피드·기도 탭 기간 필터 주별 디폴트 적용",
   "피드 주별 네비게이터 추가 (이전/다음 주 이동)",
@@ -50,12 +50,23 @@ const MOODS = [
   { emoji: "😴", label: "피곤" },
 ];
 const DAY_LABELS = ["일","월","화","수","목","금","토"];
+const TAGS = [
+  { key: "family", emoji: "👨‍👩‍👧", label: "가족" },
+  { key: "health",  emoji: "💪", label: "건강" },
+  { key: "work",    emoji: "💼", label: "일" },
+  { key: "faith",   emoji: "🙏", label: "신앙" },
+  { key: "people",  emoji: "🤝", label: "관계" },
+  { key: "self",    emoji: "🌱", label: "나 자신" },
+];
+function normalizeTags(t) {
+  return Array.isArray(t) ? t.filter(k => TAGS.some(tg => tg.key === k)) : [];
+}
 
 // ══════════════════════════════════════════
 // 상태
 // ══════════════════════════════════════════
 let currentView = "write";
-let state = { gratitude: [""], mood: null, note: "" };
+let state = { gratitude: [""], mood: null, note: "", tags: [] };
 let saved = false;
 let firebaseReady = false;
 
@@ -65,6 +76,7 @@ let histSelectedDate = "";
 let histCalYear  = 0;
 let histCalMonth = 0;
 let histEditMode = false;
+let histSearchQuery = "";
 let rewindYear = new Date().getFullYear(); // 연간 리와인드 연도
 
 // 🙏 기도노트 상태
@@ -79,6 +91,8 @@ let prayerRangeEnd     = "";
 let prayerWeekOffset   = 0;     // 0=이번 주, -1=지난 주, ...
 // 피드 전역 변수 (firebase-init.js의 var feedRef와 공유)
 let feedListener     = null;
+let feedRemovedListener = null; // child_removed 리스너 (개별 off를 위해 참조 보관)
+let feedChangedListener = null; // child_changed 리스너 (리액션 등 변경 감지, 개별 off를 위해 참조 보관)
 let feedEntries      = [];
 let feedLoading      = false;
 let sharedToday      = false;
@@ -190,23 +204,82 @@ function updateUserRef(nick) {
 
 // 특정 날짜 기록 → 클라우드 업로드
 async function syncDayToCloud(dateKey, entry) {
-  if (!firebaseReady || !userRef) return;
+  const nick = getNickname();
+  if (!nick) return; // 닉네임 없으면 클라우드 동기화 대상 아님
+  // entry.updatedAt 그대로 사용 — 새 Date.now()를 쓰면 리스너가
+  // "더 새 데이터"로 오인해 changed=true → 불필요한 re-render 발생
+  const payload = {
+    gratitude: entry.gratitude || [],
+    mood:      entry.mood || null,
+    note:      entry.note || "",
+    tags:      entry.tags || [],
+    updatedAt: entry.updatedAt || Date.now(),
+  };
+  const path = `grateful-users/${encodeNick(nick)}/history/${dateKey}`;
+  if (!firebaseReady || !userRef) {
+    enqueueSync(path, payload, "set");
+    return;
+  }
   setSyncStatus("syncing");
   try {
-    // entry.updatedAt 그대로 사용 — 새 Date.now()를 쓰면 리스너가
-    // "더 새 데이터"로 오인해 changed=true → 불필요한 re-render 발생
-    await userRef.child(dateKey).set({
-      gratitude: entry.gratitude || [],
-      mood:      entry.mood || null,
-      note:      entry.note || "",
-      updatedAt: entry.updatedAt || Date.now(),
-    });
+    await userRef.child(dateKey).set(payload);
     setSyncStatus("synced");
   } catch(e) {
     console.warn("클라우드 저장 실패:", e);
     setSyncStatus(isPermissionError(e) ? "rules" : "error");
+    if (!isPermissionError(e)) enqueueSync(path, payload, "set");
   }
 }
+
+// ══════════════════════════════════════════
+// 오프라인 쓰기 재시도 큐
+// 네트워크 실패로 클라우드에 못 올린 항목을 로컬에 쌓아뒀다가
+// 온라인 복귀/앱 재시작 시 자동으로 다시 시도한다.
+// ══════════════════════════════════════════
+const SYNC_QUEUE_KEY = "grateful-sync-queue";
+
+function getSyncQueue() {
+  try { return JSON.parse(localStorage.getItem(SYNC_QUEUE_KEY) || "[]"); }
+  catch(e) { return []; }
+}
+function saveSyncQueue(q) {
+  try { localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(q)); } catch(e) {}
+}
+function enqueueSync(path, payload, op) {
+  const q = getSyncQueue();
+  const idx = q.findIndex(x => x.path === path);
+  const item = { path, payload, op, ts: Date.now() };
+  if (idx >= 0) q[idx] = item; else q.push(item);
+  saveSyncQueue(q);
+}
+
+let _syncQueueRunning = false;
+async function processSyncQueue() {
+  if (_syncQueueRunning) return;
+  if (!firebaseReady || !db) return;
+  const q = getSyncQueue();
+  if (q.length === 0) return;
+  _syncQueueRunning = true;
+  const remaining = [];
+  for (const item of q) {
+    try {
+      const ref = db.ref(item.path);
+      if (item.op === "remove") await ref.remove();
+      else await ref.set(item.payload);
+    } catch(e) {
+      remaining.push(item);
+    }
+  }
+  saveSyncQueue(remaining);
+  _syncQueueRunning = false;
+  if (remaining.length < q.length) {
+    setSyncStatus("synced");
+    if (remaining.length === 0) showToast("오프라인 중 저장한 기록을 동기화했어요 ☁️");
+  }
+}
+
+window.addEventListener("online", () => { processSyncQueue(); });
+
 
 // 클라우드 → 로컬 병합 (앱 시작 / 로그인 시)
 async function loadHistoryFromCloud() {
@@ -236,6 +309,7 @@ async function loadHistoryFromCloud() {
           : [""],
         mood: raw.mood ?? null,
         note: raw.note ?? "",
+        tags: normalizeTags(raw.tags),
       };
       if (state.gratitude.length > 5) state.gratitude = state.gratitude.slice(0, 5);
       saved = true;
@@ -631,6 +705,7 @@ function saveNickname() {
   updateUserRef(val);
   if (firebaseReady) {
     loadHistoryFromCloud().then(() => startUserHistoryListener());
+    startPrayerListener(); // ← 기도노트 실시간 리스너도 새 닉네임 경로로 재시작
   }
   render();
 }
@@ -740,11 +815,13 @@ function _startCloudSync() {
   // 오늘 공유 여부 복원
   sharedToday = getSharedKeys().includes(todayKey());
   startFeedListener();
+  processSyncQueue(); // 오프라인 중 쌓인 항목 재시도
 }
 
 // 초기화
 // ══════════════════════════════════════════
 function init() {
+  initPinLock(); // 잠금이 설정되어 있으면 잠금화면부터 표시
   // ── 버전 변경 시 구버전 SW 캐시 강제 제거 ──────────────
   const _storedVer = localStorage.getItem('grateful-app-ver');
   if (_storedVer !== APP_VERSION) {
@@ -794,6 +871,7 @@ function init() {
         : [""],
       mood: raw.mood ?? null,
       note: raw.note ?? "",
+      tags: normalizeTags(raw.tags),
     };
     // 최소 1개, 최대 5개 유지
     if (state.gratitude.length === 0) state.gratitude = [""];
@@ -868,6 +946,7 @@ function render() {
       attachListeners();
       updateSwipeHints();
       if (currentView === 'write') updateShareBtn();
+      if (currentView === 'history') drawMoodChart();
       renderNotifBtn();
   updateProfileBtn();
       // exit class 제거 후 enter → requestAnimationFrame으로 repaint 보장
@@ -1001,6 +1080,12 @@ function renderWrite() {
   const dots = Array.from({length: totalSlots}, (_,i) =>
     `<div class="dot ${i<filled?"filled":""}"></div>`).join("");
 
+  const tagChips = TAGS.map(t =>
+    `<button class="tag-chip ${state.tags.includes(t.key)?"selected":""}" onclick="toggleTag('${t.key}')">
+      <span>${t.emoji}</span><span>${t.label}</span>
+    </button>`
+  ).join("");
+
   return `
     <div style="text-align:center;font-size:12.5px;color:var(--brown-faint);margin:2px 0 14px;font-style:italic;letter-spacing:0.3px;animation:fadeSlideIn 0.4s ease">${greeting}</div>
     ${renderThrowback()}
@@ -1015,6 +1100,10 @@ function renderWrite() {
       <div class="dots" style="margin-top:16px">${dots}</div>
     </div>
     <div class="card">
+      <div class="card-label">무엇에 대한 감사인가요? <span class="card-label-opt">(선택, 복수 가능)</span></div>
+      <div class="tag-row">${tagChips}</div>
+    </div>
+    <div class="card">
       <div class="card-label">한 줄 메모 <span class="card-label-opt">(선택)</span></div>
       <textarea class="note-textarea" id="noteText" rows="2" placeholder="오늘 하루를 한 줄로...">${escHtml(state.note)}</textarea>
     </div>
@@ -1026,6 +1115,18 @@ function renderWrite() {
       </div>
     </div>
   `;
+}
+
+function toggleTag(key) {
+  const i = state.tags.indexOf(key);
+  if (i >= 0) state.tags.splice(i, 1); else state.tags.push(key);
+  saved = false;
+  document.querySelectorAll(".tag-chip").forEach(btn => {
+    const label = btn.querySelector("span:last-child")?.textContent;
+    const tag = TAGS.find(t => t.label === label);
+    if (tag) btn.classList.toggle("selected", state.tags.includes(tag.key));
+  });
+  updateActionBtn();
 }
 
 // ══════════════════════════════════════════
@@ -1045,6 +1146,21 @@ function renderHistory() {
   allDays.forEach(d => { if (h[d]?.mood) moodCounts[h[d].mood] = (moodCounts[h[d].mood]||0)+1; });
   const topMood = Object.entries(moodCounts).sort((a,b)=>b[1]-a[1])[0];
   const topMoodEmoji = topMood ? (MOODS.find(m=>m.label===topMood[0])?.emoji||"—") : "—";
+
+  // 태그별 분포 (가장 많이 쓴 태그순)
+  const tagCounts = {};
+  allDays.forEach(d => normalizeTags(h[d]?.tags).forEach(k => { tagCounts[k] = (tagCounts[k]||0)+1; }));
+  const tagStatsEntries = Object.entries(tagCounts).sort((a,b)=>b[1]-a[1]);
+  const tagStatsHtml = tagStatsEntries.length ? `
+    <div class="card tag-stats-card">
+      <div class="card-label">무엇에 감사했나요?</div>
+      <div class="tag-stats-row">
+        ${tagStatsEntries.map(([key, cnt]) => {
+          const t = TAGS.find(tg => tg.key === key);
+          return t ? `<div class="tag-stat-item"><span class="tag-stat-emoji">${t.emoji}</span><span class="tag-stat-label">${t.label}</span><span class="tag-stat-count">${cnt}</span></div>` : "";
+        }).join("")}
+      </div>
+    </div>` : "";
 
   // ── 데이터 이전 배너 (기록이 없을 때만 표시) ──
   const transferBanner = days.length === 0 ? `
@@ -1070,6 +1186,17 @@ function renderHistory() {
       <div class="stat-card"><div class="stat-num">${streak}</div><div class="stat-label">연속일</div></div>
       <div class="stat-card"><div class="stat-num">${topMoodEmoji}</div><div class="stat-label">자주 느끼는 기분</div></div>
     </div>`;
+
+  // ── 검색 ──
+  const searchHtml = `
+    <div class="hist-search-box">
+      <span class="hist-search-icon">🔍</span>
+      <input type="text" id="histSearchInput" class="hist-search-input"
+        placeholder="감사 기록 검색..." value="${escHtml(histSearchQuery)}"
+        oninput="onHistSearchInput(this.value)">
+      ${histSearchQuery ? `<button class="hist-search-clear" onclick="clearHistSearch()">✕</button>` : ""}
+    </div>
+    <div id="histSearchResults">${histSearchQuery.trim() ? renderHistSearchResults() : ""}</div>`;
 
   // ── 월 캘린더 (월 이동 가능) ──
   const year  = histCalYear;
@@ -1097,6 +1224,10 @@ function renderHistory() {
         <button class="cal-nav-btn" onclick="moveCalMonth(1)">›</button>
       </div>
       <div class="cal-grid">${calCells}</div>
+    </div>
+    <div class="card">
+      <div class="card-label">${month+1}월 감정 흐름</div>
+      <canvas id="moodChartCanvas" class="mood-chart-canvas"></canvas>
     </div>`;
 
   // ── 모드 토글 ──
@@ -1109,7 +1240,7 @@ function renderHistory() {
   // ── 콘텐츠 ──
   const contentHtml = histMode === "day" ? renderDayDetail(h, selDate) : renderWeekView(h, selDate);
 
-  return transferBanner + statsHtml + renderRewind(h) + calHtml + modeToggle + contentHtml + `
+  return transferBanner + statsHtml + tagStatsHtml + searchHtml + renderRewind(h) + calHtml + modeToggle + contentHtml + `
     <div class="card" style="margin-top:14px">
       <div class="card-label" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
         <span>📅 챌린지 현황</span>
@@ -1120,6 +1251,133 @@ function renderHistory() {
     <div style="margin-top:10px;text-align:center">
       <button onclick="hardResetSW()" style="background:none;border:none;font-size:11px;color:var(--ink-faint);cursor:pointer;font-family:inherit;text-decoration:underline;padding:8px 0;">⚙ 앱 업데이트 / 캐시 초기화</button>
     </div>`;
+}
+
+// ── 기록 검색 ──
+function onHistSearchInput(v) {
+  histSearchQuery = v;
+  const box = document.getElementById("histSearchResults");
+  if (box) box.innerHTML = histSearchQuery.trim() ? renderHistSearchResults() : "";
+  // 검색어 유무에 따라 지우기 버튼(✕) 표시만 갱신 (전체 재렌더 방지)
+  const wrap = document.querySelector(".hist-search-box");
+  if (wrap) {
+    let clearBtn = wrap.querySelector(".hist-search-clear");
+    if (histSearchQuery && !clearBtn) {
+      clearBtn = document.createElement("button");
+      clearBtn.className = "hist-search-clear";
+      clearBtn.textContent = "✕";
+      clearBtn.onclick = clearHistSearch;
+      wrap.appendChild(clearBtn);
+    } else if (!histSearchQuery && clearBtn) {
+      clearBtn.remove();
+    }
+  }
+}
+
+function clearHistSearch() {
+  histSearchQuery = "";
+  render();
+}
+
+function renderHistSearchResults() {
+  const q = histSearchQuery.trim().toLowerCase();
+  if (!q) return "";
+  const h = getHistory();
+  const matches = Object.keys(h)
+    .filter(k => {
+      const e = h[k];
+      if (!e || !Array.isArray(e.gratitude)) return false;
+      const inGratitude = e.gratitude.some(g => g && g.toLowerCase().includes(q));
+      const inNote = e.note && e.note.toLowerCase().includes(q);
+      return inGratitude || inNote;
+    })
+    .sort((a, b) => b.localeCompare(a));
+
+  if (matches.length === 0) {
+    return `<div class="hist-search-empty">"${escHtml(histSearchQuery)}"에 대한 검색 결과가 없어요.</div>`;
+  }
+
+  const rows = matches.map(k => {
+    const e = h[k];
+    const moodEmoji = e.mood ? (MOODS.find(m => m.label === e.mood)?.emoji || "") : "";
+    const items = e.gratitude.filter(Boolean).map(g =>
+      `<div class="h-g-item"><span class="h-bullet">✦</span><span class="h-text">${escHtml(g)}</span></div>`
+    ).join("");
+    const noteRow = e.note ? `<div class="h-note">"${escHtml(e.note)}"</div>` : "";
+    return `<div class="card hist-search-card" onclick="jumpToDate('${k}')">
+      <div class="day-detail-header">
+        <div class="day-detail-date">${formatDate(k)}</div>
+        <span class="day-detail-mood">${moodEmoji}</span>
+      </div>
+      ${items}${noteRow}
+    </div>`;
+  }).join("");
+
+  return `<div class="hist-search-count">${matches.length}건 찾음</div>${rows}`;
+}
+
+function jumpToDate(dateKey) {
+  histSearchQuery = "";
+  histMode = "day";
+  selectHistDay(dateKey);
+}
+
+// ── 월간 감정 흐름 차트 ──
+const MOOD_SCORE = { "행복": 5, "좋음": 4, "평온": 3, "피곤": 2, "힘듦": 1 };
+
+function drawMoodChart() {
+  const canvas = document.getElementById("moodChartCanvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const h = getHistory();
+  const year = histCalYear, month = histCalMonth;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.clientWidth || canvas.parentElement.clientWidth || 300;
+  const cssH = 84;
+  canvas.width  = Math.max(1, Math.round(cssW * dpr));
+  canvas.height = Math.max(1, Math.round(cssH * dpr));
+  canvas.style.height = cssH + "px";
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, cssW, cssH);
+
+  const styles = getComputedStyle(document.documentElement);
+  const terra  = (styles.getPropertyValue("--terra") || "#c17a52").trim();
+  const border = (styles.getPropertyValue("--border") || "#e4d4c0").trim();
+
+  const barW = cssW / daysInMonth;
+  const baseline = cssH - 12;
+  const barMaxH  = cssH - 20;
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const k = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const entry = h[k];
+    const score = (entry && entry.mood) ? (MOOD_SCORE[entry.mood] || 0) : 0;
+    const x = (d - 1) * barW + barW * 0.18;
+    const w = Math.max(1.5, barW * 0.64);
+    if (score > 0) {
+      const bh = (score / 5) * barMaxH;
+      ctx.globalAlpha = 0.85;
+      ctx.fillStyle = terra;
+      const r = Math.min(2.5, w / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, baseline - bh);
+      ctx.arcTo(x + w, baseline - bh, x + w, baseline, r);
+      ctx.arcTo(x + w, baseline, x, baseline, r);
+      ctx.arcTo(x, baseline, x, baseline - bh, r);
+      ctx.arcTo(x, baseline - bh, x + w, baseline - bh, r);
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      ctx.globalAlpha = 0.55;
+      ctx.fillStyle = border;
+      ctx.beginPath();
+      ctx.arc(x + w / 2, baseline - 1.5, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
 }
 
 // ── 일별 상세 ──
@@ -1158,6 +1416,11 @@ function renderDayDetail(h, dateKey) {
       </div>`
     ).join("");
     const noteTa = `<textarea class="note-textarea" id="hedit_note" rows="2" placeholder="한 줄 메모...">${escHtml(e.note||"")}</textarea>`;
+    const editTagChips = TAGS.map(t =>
+      `<button class="tag-chip ${histEditTags.includes(t.key)?"selected":""}" onclick="toggleHistEditTag('${t.key}')">
+        <span>${t.emoji}</span><span>${t.label}</span>
+      </button>`
+    ).join("");
     return `
       <div class="card" style="border-color:var(--terra)">
         <div class="day-detail-header">
@@ -1170,6 +1433,8 @@ function renderDayDetail(h, dateKey) {
         </div>
         <div class="card-label" style="margin:14px 0 0">감사한 것</div>
         ${gTas}
+        <div class="card-label" style="margin:14px 0 8px">태그</div>
+        <div class="tag-row hist-edit-tags">${editTagChips}</div>
         <div class="card-label" style="margin:14px 0 4px">메모</div>
         ${noteTa}
         <button class="edit-save-btn" onclick="saveHistEdit('${dateKey}')">✓ 수정 저장</button>
@@ -1181,6 +1446,11 @@ function renderDayDetail(h, dateKey) {
     `<div class="h-g-item"><span class="h-bullet">✦</span><span class="h-text">${escHtml(g)}</span></div>`
   ).join("");
   const noteRow = e.note ? `<div class="h-note">"${escHtml(e.note)}"</div>` : "";
+  const dayTags = normalizeTags(e.tags);
+  const tagBadges = dayTags.length ? `<div class="tag-badge-row">${dayTags.map(k => {
+    const t = TAGS.find(tg => tg.key === k);
+    return t ? `<span class="tag-badge">${t.emoji} ${t.label}</span>` : "";
+  }).join("")}</div>` : "";
 
   return `
     <div class="card">
@@ -1188,21 +1458,34 @@ function renderDayDetail(h, dateKey) {
         <div class="day-detail-date">${formatDate(dateKey)}</div>
         <div style="display:flex;align-items:center;gap:8px">
           <span class="day-detail-mood">${moodEmoji}</span>
+          <button class="edit-btn" onclick="shareGratitudeCard('${dateKey}')" title="카드로 공유">🖼</button>
           <button class="edit-btn" onclick="startHistEdit('${dateKey}')">✏️ 수정</button>
         </div>
       </div>
-      ${gRows}${noteRow}
+      ${gRows}${noteRow}${tagBadges}
     </div>`;
 }
 
+let histEditTags = [];
 function startHistEdit(dateKey) {
   histEditMode = true;
   histSelectedDate = dateKey;
+  const h = getHistory();
+  histEditTags = normalizeTags(h[dateKey] && h[dateKey].tags);
   render();
 }
 function cancelHistEdit() {
   histEditMode = false;
   render();
+}
+function toggleHistEditTag(key) {
+  const i = histEditTags.indexOf(key);
+  if (i >= 0) histEditTags.splice(i, 1); else histEditTags.push(key);
+  document.querySelectorAll(".hist-edit-tags .tag-chip").forEach(btn => {
+    const label = btn.querySelector("span:last-child")?.textContent;
+    const tag = TAGS.find(t => t.label === label);
+    if (tag) btn.classList.toggle("selected", histEditTags.includes(tag.key));
+  });
 }
 function histEditMood(dateKey, moodLabel) {
   const h = getHistory();
@@ -1226,6 +1509,7 @@ function saveHistEdit(dateKey) {
   const noteEl = document.getElementById("hedit_note");
   h[dateKey].gratitude = newG;
   h[dateKey].note = noteEl ? noteEl.value.trim() : h[dateKey].note;
+  h[dateKey].tags = [...histEditTags];
   h[dateKey].updatedAt = Date.now(); // ✅ 수정: updatedAt 갱신
   saveHistory(h);
   syncDayToCloud(dateKey, h[dateKey]); // ✅ 수정: 클라우드 동기화
@@ -1234,6 +1518,133 @@ function saveHistEdit(dateKey) {
   histEditMode = false;
   showToast("수정했어요 ✦");
   render();
+}
+
+// ══════════════════════════════════════════
+// 감사 카드 이미지로 공유
+// ══════════════════════════════════════════
+function shareGratitudeCard(dateKey) {
+  const h = getHistory();
+  const e = h[dateKey];
+  if (!e || !Array.isArray(e.gratitude) || !e.gratitude.some(Boolean)) {
+    showToast("공유할 기록이 없어요."); return;
+  }
+
+  const W = 1080, H = 1350;
+  const canvas = document.createElement("canvas");
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext("2d");
+
+  const styles = getComputedStyle(document.documentElement);
+  const cS = name => (styles.getPropertyValue(name) || "").trim();
+  const bgStart = cS("--bg-grad-start") || "#faf6f0";
+  const bgEnd   = cS("--bg-grad-end")   || "#ede4d8";
+  const terra   = cS("--terra")   || "#c17a52";
+  const ink     = cS("--ink")     || "#2a1f14";
+  const inkSoft = cS("--ink-soft")|| "#7a6050";
+
+  // 배경 그라디언트
+  const grad = ctx.createLinearGradient(0, 0, W, H);
+  grad.addColorStop(0, bgStart);
+  grad.addColorStop(1, bgEnd);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // 상단 라벨
+  ctx.fillStyle = terra;
+  ctx.font = "600 34px 'DM Sans', sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("🌿 Grateful", 70, 120);
+
+  ctx.fillStyle = inkSoft;
+  ctx.font = "400 30px 'DM Sans', sans-serif";
+  ctx.fillText(formatDate(dateKey), 70, 168);
+
+  const moodEmoji = e.mood ? (MOODS.find(m => m.label === e.mood)?.emoji || "") : "";
+  if (moodEmoji) {
+    ctx.font = "80px sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillText(moodEmoji, W - 70, 150);
+    ctx.textAlign = "left";
+  }
+
+  // 구분선
+  ctx.strokeStyle = terra;
+  ctx.globalAlpha = 0.3;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(70, 210);
+  ctx.lineTo(W - 70, 210);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // 감사 항목
+  let y = 300;
+  const maxWidth = W - 160;
+  ctx.fillStyle = ink;
+  e.gratitude.filter(Boolean).slice(0, 5).forEach(g => {
+    ctx.font = "500 40px 'Noto Serif KR', serif";
+    ctx.fillStyle = terra;
+    ctx.fillText("✦", 70, y);
+    ctx.fillStyle = ink;
+    const lines = wrapCanvasText(ctx, g, maxWidth, "400 38px 'Noto Serif KR', serif");
+    lines.forEach((line, i) => {
+      ctx.font = "400 38px 'Noto Serif KR', serif";
+      ctx.fillText(line, 110, y + i * 50);
+    });
+    y += lines.length * 50 + 36;
+  });
+
+  // 메모
+  if (e.note) {
+    y += 20;
+    ctx.font = "italic 400 32px 'DM Serif Display', serif";
+    ctx.fillStyle = inkSoft;
+    const noteLines = wrapCanvasText(ctx, `"${e.note}"`, maxWidth, "italic 400 32px 'DM Serif Display', serif");
+    noteLines.forEach((line, i) => ctx.fillText(line, 70, y + i * 44));
+  }
+
+  // 하단 워터마크
+  ctx.textAlign = "center";
+  ctx.fillStyle = inkSoft;
+  ctx.globalAlpha = 0.6;
+  ctx.font = "400 24px 'DM Sans', sans-serif";
+  ctx.fillText("Made with 🌿 Grateful", W / 2, H - 60);
+  ctx.globalAlpha = 1;
+
+  canvas.toBlob(blob => {
+    if (!blob) { showToast("이미지 생성에 실패했어요."); return; }
+    const file = new File([blob], `grateful-${dateKey}.png`, { type: "image/png" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: "Grateful", text: `${formatDate(dateKey)}의 감사 기록` }).catch(() => {});
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `grateful-${dateKey}.png`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
+      showToast("카드 이미지를 저장했어요 🖼");
+    }
+  }, "image/png");
+}
+
+// 캔버스 텍스트 줄바꿈 헬퍼
+function wrapCanvasText(ctx, text, maxWidth, font) {
+  ctx.font = font;
+  const words = text.split("");
+  const lines = [];
+  let line = "";
+  words.forEach(ch => {
+    const test = line + ch;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      lines.push(line);
+      line = ch;
+    } else {
+      line = test;
+    }
+  });
+  if (line) lines.push(line);
+  return lines;
 }
 
 // ── 주별 뷰 ──
@@ -1433,7 +1844,7 @@ function saveToday() {
   if (trimmed.length === 0) trimmed.push("");
 
   const h = getHistory();
-  h[todayKey()] = { gratitude: trimmed, mood: state.mood, note: state.note, updatedAt: Date.now() };
+  h[todayKey()] = { gratitude: trimmed, mood: state.mood, note: state.note, tags: state.tags, updatedAt: Date.now() };
   saveHistory(h);
   state.gratitude = trimmed;
   saved = true;
@@ -1515,6 +1926,8 @@ async function confirmLeaveGroup() {
     if (userListener && userRef) { userRef.off("value", userListener); userListener = null; }
     if (prayerListener && prayerRef) { prayerRef.off("value", prayerListener); prayerListener = null; }
     if (feedListener && feedRef) { feedRef.off("child_added", feedListener); feedListener = null; }
+    if (feedRemovedListener && feedRef) { feedRef.off("child_removed", feedRemovedListener); feedRemovedListener = null; }
+    if (feedChangedListener && feedRef) { feedRef.off("child_changed", feedChangedListener); feedChangedListener = null; }
     userRef = null; prayerRef = null;
     localStorage.removeItem("grateful-shared");
     sharedToday = false;
@@ -2597,32 +3010,52 @@ function savePrayers(p) {
 
 // ── 기도 클라우드 동기화 ──
 async function syncPrayerToCloud(id, prayer) {
-  if (!firebaseReady || !prayerRef) return;
+  const nick = getNickname();
+  if (!nick) return;
+  const path = `grateful-users/${encodeNick(nick)}/prayers/${id}`;
+  if (!firebaseReady || !prayerRef) { enqueueSync(path, prayer, "set"); return; }
   try {
     await prayerRef.child(id).set(prayer);
-  } catch(e) { console.warn("기도 클라우드 저장 실패:", e); }
+  } catch(e) {
+    console.warn("기도 클라우드 저장 실패:", e);
+    enqueueSync(path, prayer, "set");
+  }
 }
 
 async function deletePrayerFromCloud(id) {
-  if (!firebaseReady || !prayerRef) return;
+  const nick = getNickname();
+  if (!nick) return;
+  const path = `grateful-users/${encodeNick(nick)}/prayers/${id}`;
+  if (!firebaseReady || !prayerRef) { enqueueSync(path, null, "remove"); return; }
   try {
     await prayerRef.child(id).remove();
-  } catch(e) { console.warn("기도 클라우드 삭제 실패:", e); }
+  } catch(e) {
+    console.warn("기도 클라우드 삭제 실패:", e);
+    enqueueSync(path, null, "remove");
+  }
 }
+
+// 방금 로컬에서 생성된 항목(아직 클라우드 업로드 중일 수 있음)은 이 시간(ms) 동안
+// 클라우드에 없어도 삭제로 간주하지 않고 보존한다.
+const PRAYER_DELETE_GRACE_MS = 15000;
 
 async function loadPrayersFromCloud() {
   if (!firebaseReady || !prayerRef) return;
   try {
     const snap = await prayerRef.once("value");
-    if (!snap.exists()) return;
-    const cloudPrayers = snap.val();
+    const cloudPrayers = snap.exists() ? snap.val() : {};
     const local = getPrayers();
     // 클라우드 우선 병합 (createdAt 기준)
-    const merged = { ...local };
+    const merged = {};
     Object.keys(cloudPrayers).forEach(id => {
       const cp = cloudPrayers[id];
-      if (!merged[id] || (cp.createdAt || 0) >= (merged[id].createdAt || 0)) {
-        merged[id] = cp;
+      merged[id] = (local[id] && (local[id].createdAt || 0) > (cp.createdAt || 0)) ? local[id] : cp;
+    });
+    // 클라우드에서 삭제된 항목은 로컬에서도 제거 (방금 만든 항목은 유예)
+    Object.keys(local).forEach(id => {
+      if (!cloudPrayers[id] && !merged[id]) {
+        const age = Date.now() - (local[id].createdAt || 0);
+        if (age < PRAYER_DELETE_GRACE_MS) merged[id] = local[id];
       }
     });
     savePrayers(merged);
@@ -2634,18 +3067,28 @@ function startPrayerListener() {
   if (!firebaseReady || !prayerRef) return;
   if (prayerListener) { prayerRef.off("value", prayerListener); prayerListener = null; }
   prayerListener = prayerRef.on("value", snap => {
-    if (!snap.exists()) return;
-    const cloudPrayers = snap.val();
+    const cloudPrayers = snap.exists() ? snap.val() : {};
     const local = getPrayers();
     let changed = false;
+    const merged = {};
     Object.keys(cloudPrayers).forEach(id => {
       const cp = cloudPrayers[id];
       if (!local[id] || (cp.createdAt || 0) > (local[id].createdAt || 0)) {
-        local[id] = cp; changed = true;
+        merged[id] = cp; changed = true;
+      } else {
+        merged[id] = local[id];
+      }
+    });
+    // 클라우드에서 삭제된 항목은 로컬에서도 제거 (방금 만든 항목은 유예)
+    Object.keys(local).forEach(id => {
+      if (!cloudPrayers[id]) {
+        const age = Date.now() - (local[id].createdAt || 0);
+        if (age < PRAYER_DELETE_GRACE_MS) merged[id] = local[id];
+        else changed = true;
       }
     });
     if (changed) {
-      savePrayers(local);
+      savePrayers(merged);
       if (currentView === "prayer") render();
     }
   });
@@ -3066,9 +3509,12 @@ function startFeedListener() {
   if (feedRef) {
     feedRef.off("child_added");
     feedRef.off("child_removed");
+    feedRef.off("child_changed");
     feedRef.off("value");
   }
   feedListener = null;
+  feedRemovedListener = null;
+  feedChangedListener = null;
   feedEntries  = [];
   feedLoading  = true;
 
@@ -3111,8 +3557,16 @@ function startFeedListener() {
   });
 
   // 삭제 감지
-  feedRef.on("child_removed", snap => {
+  feedRemovedListener = feedRef.on("child_removed", snap => {
     feedEntries = feedEntries.filter(e => e.id !== snap.key);
+    if (currentView === "feed") render();
+  });
+
+  // 변경 감지 (리액션 등 기존 항목의 하위 데이터 갱신)
+  feedChangedListener = feedRef.on("child_changed", snap => {
+    const idx = feedEntries.findIndex(e => e.id === snap.key);
+    if (idx === -1) return;
+    feedEntries[idx] = { id: snap.key, ...snap.val() };
     if (currentView === "feed") render();
   });
 }
@@ -3361,6 +3815,7 @@ function renderFeed() {
     <div class="feed-toolbar">
       <button class="feed-my-btn" data-nick="${escHtml(myNick)}" onclick="setFeedAuthorFilter(this.dataset.nick)">${escHtml(myNick || "나")}</button>
       <div style="display:flex;gap:8px;align-items:center">
+        <button class="feed-icon-btn" onclick="openPinSettingsModal()" title="잠금 설정">🔒</button>
         <button class="feed-icon-btn" onclick="showReminderModal()" title="리마인더 설정">⏰</button>
         <button class="feed-icon-btn notif-btn-wrap" id="notifBtn" onclick="toggleNotification()" title="알림"><span class="notif-bell-icon">🔔</span><span class="notif-badge"></span><span class="notif-slash"></span></button>
         <button class="feed-leave-btn" onclick="showLeaveGroupModal()">📋 나가기</button>
@@ -3454,6 +3909,15 @@ function renderFeed() {
       const deleteBtn = isMe
         ? `<button class="feed-delete-btn" data-id="${escHtml(entry.id)}" onclick="deleteFeedEntry(this.dataset.id)">삭제</button>` : "";
 
+      const reactions  = entry.reactions || {};
+      const encMe      = myNick ? encodeNick(myNick) : "";
+      const iReacted   = !!reactions[encMe];
+      const reactCount = Object.keys(reactions).length;
+      const reactBtn = `
+        <button class="feed-react-btn ${iReacted ? "reacted" : ""}" data-id="${escHtml(entry.id)}" onclick="toggleFeedReaction(this.dataset.id)">
+          <span>${iReacted ? "❤️" : "🤍"}</span>${reactCount > 0 ? `<span class="feed-react-count">${reactCount}</span>` : ""}
+        </button>`;
+
       cards += `
         <div class="feed-card-new ${isMe ? "feed-card-new-mine" : ""}">
           <div class="feed-card-new-header">
@@ -3474,6 +3938,7 @@ function renderFeed() {
           </div>
           <div class="feed-items-new">${items}</div>
           ${noteHtml}
+          <div class="feed-card-footer-row">${reactBtn}</div>
         </div>`;
     });
   }
@@ -3499,5 +3964,116 @@ async function deleteFeedEntry(id) {
   }
 }
 
+// ══════════════════════════════════════════
+// 피드 리액션 (하트)
+// ══════════════════════════════════════════
+function toggleFeedReaction(id) {
+  if (!feedRef || !firebaseReady) { showToast("Firebase 연결 오류예요 🔥"); return; }
+  const nick = getNickname();
+  if (!nick) { showToast("이름을 먼저 설정해주세요 😊"); return; }
+  const entry = feedEntries.find(e => e.id === id);
+  if (!entry) return;
+  const enc = encodeNick(nick);
+  const reactions = { ...(entry.reactions || {}) };
+  const wasReacted = !!reactions[enc];
+
+  // 낙관적 UI 업데이트
+  if (wasReacted) delete reactions[enc]; else reactions[enc] = true;
+  entry.reactions = reactions;
+  render();
+
+  const ref = feedRef.child(id).child("reactions").child(enc);
+  const op = wasReacted ? ref.remove() : ref.set(true);
+  op.catch(err => {
+    console.warn("리액션 반영 실패:", err);
+    // 롤백
+    const cur = { ...(entry.reactions || {}) };
+    if (wasReacted) cur[enc] = true; else delete cur[enc];
+    entry.reactions = cur;
+    if (currentView === "feed") render();
+  });
+}
+
+// ══════════════════════════════════════════
+// PIN 잠금
+// 기기를 다른 사람과 함께 쓸 때를 위한 가벼운 로컬 잠금.
+// 서버 인증이 아닌 localStorage 기반 단순 잠금이라, 브라우저 데이터를
+// 직접 지우면 우회될 수 있음 — 강한 보안이 아닌 "프라이버시 커튼" 용도.
+// ══════════════════════════════════════════
+const PIN_KEY = "grateful-pin";
+
+function initPinLock() {
+  const pin = localStorage.getItem(PIN_KEY);
+  if (!pin) return;
+  const overlay = document.getElementById("pinLockScreen");
+  if (!overlay) return;
+  overlay.style.display = "flex";
+  const input = document.getElementById("pinLockInput");
+  const err = document.getElementById("pinLockError");
+  if (err) err.style.display = "none";
+  if (input) { input.value = ""; setTimeout(() => input.focus(), 200); }
+}
+
+function submitPinUnlock() {
+  const input = document.getElementById("pinLockInput");
+  const err = document.getElementById("pinLockError");
+  const v = (input && input.value || "").trim();
+  const cur = localStorage.getItem(PIN_KEY);
+  if (v && v === cur) {
+    const overlay = document.getElementById("pinLockScreen");
+    if (overlay) overlay.style.display = "none";
+  } else {
+    if (err) err.style.display = "block";
+    const box = document.querySelector(".pin-lock-box");
+    if (box) { box.classList.add("shake"); setTimeout(() => box.classList.remove("shake"), 400); }
+    if (input) { input.value = ""; input.focus(); }
+  }
+}
+
+function openPinSettingsModal() {
+  const hasPin = !!localStorage.getItem(PIN_KEY);
+  const modal = document.getElementById("pinSettingsModal");
+  const title = document.getElementById("pinSettingsTitle");
+  const sub   = document.getElementById("pinSettingsSub");
+  const input = document.getElementById("pinSettingsInput");
+  const btn   = document.getElementById("pinSettingsBtn");
+  if (!modal) return;
+  if (input) input.value = "";
+  if (hasPin) {
+    if (title) title.textContent = "🔒 잠금 해제";
+    if (sub)   sub.textContent   = "해제하려면 현재 PIN(4자리)을 입력하세요.";
+    if (btn)   { btn.textContent = "잠금 해제"; btn.onclick = disablePinLock; }
+  } else {
+    if (title) title.textContent = "🔒 잠금 설정";
+    if (sub)   sub.textContent   = "앱을 열 때 사용할 4자리 숫자를 정해주세요.";
+    if (btn)   { btn.textContent = "설정하기"; btn.onclick = enablePinLock; }
+  }
+  modal.style.display = "flex";
+  setTimeout(() => input && input.focus(), 100);
+}
+
+function closePinSettingsModal() {
+  const modal = document.getElementById("pinSettingsModal");
+  if (modal) modal.style.display = "none";
+}
+
+function enablePinLock() {
+  const input = document.getElementById("pinSettingsInput");
+  const v = (input && input.value || "").trim();
+  if (!/^\d{4}$/.test(v)) { showToast("4자리 숫자를 입력해주세요"); return; }
+  localStorage.setItem(PIN_KEY, v);
+  closePinSettingsModal();
+  showToast("🔒 잠금이 설정됐어요");
+}
+
+function disablePinLock() {
+  const input = document.getElementById("pinSettingsInput");
+  const v = (input && input.value || "").trim();
+  const cur = localStorage.getItem(PIN_KEY);
+  if (!cur || v !== cur) { showToast("PIN이 일치하지 않아요"); return; }
+  localStorage.removeItem(PIN_KEY);
+  closePinSettingsModal();
+  showToast("잠금이 해제됐어요");
+}
 
 // init()은 Firebase SDK 로드 완료 후 자동 호출됨 (head의 DOMContentLoaded 참고)
